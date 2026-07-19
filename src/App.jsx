@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo } from "react";
 import {
   Users, ListChecks, Wallet, LayoutDashboard, Plus, X,
-  Clock, AlertTriangle, Trash2
+  Clock, AlertTriangle, Trash2, Briefcase, ArrowLeft
 } from "lucide-react";
 import { supabase } from "./supabaseClient";
 
@@ -33,6 +33,22 @@ const FIN_STAGE_COLOR = {
   baixado: "#2FA88A",
 };
 
+const RS_STAGES = [
+  { key: "triagem", label: "Triagem" },
+  { key: "entrevista", label: "Entrevista" },
+  { key: "proposta", label: "Proposta" },
+  { key: "contratado", label: "Contratado" },
+  { key: "reprovado", label: "Reprovado" },
+];
+
+const RS_STAGE_COLOR = {
+  triagem: "#B9C4CC",
+  entrevista: "#17B8C4",
+  proposta: "#F2A93B",
+  contratado: "#2FA88A",
+  reprovado: "#D9534F",
+};
+
 function currency(v) {
   return (Number(v) || 0).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 }
@@ -52,21 +68,27 @@ export default function App() {
   const [clients, setClients] = useState([]);
   const [tasks, setTasks] = useState([]);
   const [finances, setFinances] = useState([]);
+  const [vagas, setVagas] = useState([]);
+  const [candidatos, setCandidatos] = useState([]);
   const [modal, setModal] = useState(null);
 
   useEffect(() => {
     (async () => {
-      const [c, t, f] = await Promise.all([
+      const [c, t, f, v, cd] = await Promise.all([
         supabase.from("clients").select("*").order("created_at"),
         supabase.from("tasks").select("*").order("created_at"),
         supabase.from("finances").select("*").order("created_at"),
+        supabase.from("vagas").select("*").order("created_at"),
+        supabase.from("candidatos").select("*").order("created_at"),
       ]);
-      if (c.error || t.error || f.error) {
-        setError((c.error || t.error || f.error).message);
+      if (c.error || t.error || f.error || v.error || cd.error) {
+        setError((c.error || t.error || f.error || v.error || cd.error).message);
       } else {
         setClients(c.data);
         setTasks(t.data);
         setFinances(f.data);
+        setVagas(v.data);
+        setCandidatos(cd.data);
       }
       setLoading(false);
     })();
@@ -83,6 +105,9 @@ export default function App() {
     setClients((p) => p.filter((c) => c.id !== id));
     setTasks((p) => p.filter((t) => t.client_id !== id));
     setFinances((p) => p.filter((f) => f.client_id !== id));
+    const orphanVagas = vagas.filter((v) => v.client_id === id).map((v) => v.id);
+    setVagas((p) => p.filter((v) => v.client_id !== id));
+    setCandidatos((p) => p.filter((cd) => !orphanVagas.includes(cd.vaga_id)));
   }
 
   async function addTask(data) {
@@ -109,6 +134,29 @@ export default function App() {
   async function removeFinance(id) {
     await supabase.from("finances").delete().eq("id", id);
     setFinances((p) => p.filter((f) => f.id !== id));
+  }
+
+  async function addVaga(data) {
+    const { data: row, error: err } = await supabase.from("vagas").insert({ status: "aberta", ...data }).select().single();
+    if (!err) setVagas((p) => [...p, row]);
+  }
+  async function removeVaga(id) {
+    await supabase.from("vagas").delete().eq("id", id);
+    setVagas((p) => p.filter((v) => v.id !== id));
+    setCandidatos((p) => p.filter((cd) => cd.vaga_id !== id));
+  }
+
+  async function addCandidato(data) {
+    const { data: row, error: err } = await supabase.from("candidatos").insert({ etapa: "triagem", ...data }).select().single();
+    if (!err) setCandidatos((p) => [...p, row]);
+  }
+  async function moveCandidato(id, etapa) {
+    setCandidatos((p) => p.map((cd) => (cd.id === id ? { ...cd, etapa } : cd)));
+    await supabase.from("candidatos").update({ etapa }).eq("id", id);
+  }
+  async function removeCandidato(id) {
+    await supabase.from("candidatos").delete().eq("id", id);
+    setCandidatos((p) => p.filter((cd) => cd.id !== id));
   }
 
   const kpis = useMemo(() => {
@@ -159,6 +207,7 @@ export default function App() {
           <NavItem icon={Users} label="Clientes" active={view === "clients"} onClick={() => setView("clients")} />
           <NavItem icon={ListChecks} label="Tarefas" active={view === "tasks"} onClick={() => setView("tasks")} />
           <NavItem icon={Wallet} label="Financeiro" active={view === "finance"} onClick={() => setView("finance")} />
+          <NavItem icon={Briefcase} label="R&S" active={view === "rs"} onClick={() => setView("rs")} />
         </nav>
       </aside>
 
@@ -187,6 +236,19 @@ export default function App() {
             onRemove={removeFinance}
           />
         )}
+        {view === "rs" && (
+          <RSView
+            clients={clients}
+            vagas={vagas}
+            candidatos={candidatos}
+            clientName={clientName}
+            onAddVaga={() => setModal({ type: "vaga" })}
+            onRemoveVaga={removeVaga}
+            onAddCandidato={(vagaId) => setModal({ type: "candidato", vagaId })}
+            onMoveCandidato={moveCandidato}
+            onRemoveCandidato={removeCandidato}
+          />
+        )}
       </main>
 
       {modal?.type === "client" && (
@@ -197,6 +259,12 @@ export default function App() {
       )}
       {modal?.type === "finance" && (
         <FinanceModal clients={clients} onClose={() => setModal(null)} onSave={(d) => { addFinance(d); setModal(null); }} />
+      )}
+      {modal?.type === "vaga" && (
+        <VagaModal clients={clients} onClose={() => setModal(null)} onSave={(d) => { addVaga(d); setModal(null); }} />
+      )}
+      {modal?.type === "candidato" && (
+        <CandidatoModal vagaId={modal.vagaId} onClose={() => setModal(null)} onSave={(d) => { addCandidato(d); setModal(null); }} />
       )}
     </div>
   );
@@ -265,7 +333,6 @@ function Dashboard({ kpis, clients, tasks }) {
     </div>
   );
 }
-
 function Kpi({ label, value, icon: Icon, warn, mono }) {
   return (
     <div className="bg-white rounded-xl border border-[#E4EAEC] p-4">
@@ -314,6 +381,7 @@ function ClientFlowRow({ client, tasks }) {
     </div>
   );
 }
+
 function EmptyState({ text }) {
   return (
     <div className="bg-white rounded-xl border border-dashed border-[#D7E0E4] py-10 text-center text-sm text-[#8098A8]">
@@ -576,7 +644,6 @@ function TabButton({ active, onClick, label }) {
     </button>
   );
 }
-
 function FinanceModal({ clients, onClose, onSave }) {
   const [tipo, setTipo] = useState("receber");
   const [descricao, setDescricao] = useState("");
@@ -654,5 +721,155 @@ function ModalActions({ onClose, onSave, disabled }) {
         Salvar
       </button>
     </div>
+  );
+}
+
+/* ---------------- R&S ---------------- */
+function RSView({ clients, vagas, candidatos, clientName, onAddVaga, onRemoveVaga, onAddCandidato, onMoveCandidato, onRemoveCandidato }) {
+  const [selectedVaga, setSelectedVaga] = useState(null);
+  const vaga = vagas.find((v) => v.id === selectedVaga);
+
+  if (vaga) {
+    const items = candidatos.filter((c) => c.vaga_id === vaga.id);
+    return (
+      <div>
+        <div className="flex items-start justify-between px-10 pt-9 pb-6">
+          <div>
+            <button onClick={() => setSelectedVaga(null)} className="flex items-center gap-1 text-xs text-[#5B7285] mb-2 hover:text-[#0B2540]">
+              <ArrowLeft size={13} /> Todas as vagas
+            </button>
+            <h1 className="font-display font-700 text-2xl text-[#0B2540]">{vaga.titulo}</h1>
+            <p className="text-sm text-[#5B7285] mt-1">{clientName(vaga.client_id)} · {items.length} candidato{items.length !== 1 ? "s" : ""}</p>
+          </div>
+          <AddButton label="Novo candidato" onClick={() => onAddCandidato(vaga.id)} />
+        </div>
+
+        <div className="px-10 pb-10 grid grid-cols-5 gap-3">
+          {RS_STAGES.map((s) => {
+            const colItems = items.filter((c) => c.etapa === s.key);
+            return (
+              <div key={s.key}>
+                <div className="flex items-center gap-2 mb-3">
+                  <span style={{ background: RS_STAGE_COLOR[s.key] }} className="w-2 h-2 rounded-full flex-shrink-0" />
+                  <span className="text-xs font-medium text-[#5B7285] uppercase tracking-wide">{s.label}</span>
+                  <span className="text-xs text-[#B9C4CC] font-mono">{colItems.length}</span>
+                </div>
+                <div className="flex flex-col gap-2">
+                  {colItems.length === 0 && <div className="text-xs text-[#B9C4CC] italic py-2">vazio</div>}
+                  {colItems.map((c) => (
+                    <div key={c.id} className="bg-white rounded-lg border border-[#E4EAEC] p-3">
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="text-sm font-medium text-[#0B2540] leading-snug">{c.nome}</div>
+                        <button onClick={() => onRemoveCandidato(c.id)} className="text-[#D7E0E4] hover:text-[#D9534F] flex-shrink-0">
+                          <X size={13} />
+                        </button>
+                      </div>
+                      {c.contato && <div className="text-xs text-[#8098A8] mt-1">{c.contato}</div>}
+                      <div className="flex gap-1 mt-2 flex-wrap">
+                        {RS_STAGES.filter((s2) => s2.key !== c.etapa).map((s2) => (
+                          <button
+                            key={s2.key}
+                            onClick={() => onMoveCandidato(c.id, s2.key)}
+                            className="text-[10px] px-1.5 py-0.5 rounded border border-[#E4EAEC] text-[#5B7285] hover:border-[#17B8C4] hover:text-[#17B8C4] transition"
+                          >
+                            {s2.label}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div>
+      <PageHeader title="Recrutamento & Seleção" subtitle={`${vagas.length} vaga${vagas.length !== 1 ? "s" : ""}`} action={<AddButton label="Nova vaga" onClick={onAddVaga} />} />
+      <div className="px-10 pb-10">
+        {vagas.length === 0 ? (
+          <EmptyState text="Nenhuma vaga cadastrada ainda. Cadastre a primeira pra começar o funil de candidatos." />
+        ) : (
+          <div className="grid grid-cols-2 gap-4">
+            {vagas.map((v) => {
+              const items = candidatos.filter((c) => c.vaga_id === v.id);
+              return (
+                <div key={v.id} onClick={() => setSelectedVaga(v.id)} className="bg-white rounded-xl border border-[#E4EAEC] p-5 cursor-pointer hover:border-[#17B8C4] transition">
+                  <div className="flex items-start justify-between">
+                    <div>
+                      <div className="font-display font-600 text-[#0B2540]">{v.titulo}</div>
+                      <div className="text-xs text-[#8098A8] mt-0.5">{clientName(v.client_id)}</div>
+                    </div>
+                    <button onClick={(e) => { e.stopPropagation(); onRemoveVaga(v.id); }} className="text-[#B9C4CC] hover:text-[#D9534F] transition">
+                      <Trash2 size={15} />
+                    </button>
+                  </div>
+                  <div className="mt-3 flex items-center gap-2 text-xs">
+                    <span
+                      style={{ background: v.status === "aberta" ? "#DFF5EE" : "#FDF1DD", color: v.status === "aberta" ? "#2FA88A" : "#D9822B" }}
+                      className="px-2 py-0.5 rounded-full font-medium"
+                    >
+                      {v.status === "aberta" ? "Aberta" : "Fechada"}
+                    </span>
+                    <span className="text-[#8098A8]">{items.length} candidato{items.length !== 1 ? "s" : ""}</span>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function VagaModal({ clients, onClose, onSave }) {
+  const [titulo, setTitulo] = useState("");
+  const [client_id, setClientId] = useState(clients[0]?.id || "");
+  const [status, setStatus] = useState("aberta");
+  return (
+    <Modal title="Nova vaga" onClose={onClose}>
+      {clients.length === 0 ? (
+        <div className="text-sm text-[#8098A8]">Cadastre um cliente antes de criar uma vaga.</div>
+      ) : (
+        <>
+          <Field label="Título da vaga">
+            <input autoFocus value={titulo} onChange={(e) => setTitulo(e.target.value)} className="input" placeholder="Ex: Assistente administrativo" />
+          </Field>
+          <Field label="Cliente">
+            <select value={client_id} onChange={(e) => setClientId(e.target.value)} className="input">
+              {clients.map((c) => <option key={c.id} value={c.id}>{c.nome}</option>)}
+            </select>
+          </Field>
+          <Field label="Status">
+            <select value={status} onChange={(e) => setStatus(e.target.value)} className="input">
+              <option value="aberta">Aberta</option>
+              <option value="fechada">Fechada</option>
+            </select>
+          </Field>
+          <ModalActions onClose={onClose} onSave={() => titulo.trim() && onSave({ titulo, client_id, status })} disabled={!titulo.trim()} />
+        </>
+      )}
+    </Modal>
+  );
+}
+
+function CandidatoModal({ vagaId, onClose, onSave }) {
+  const [nome, setNome] = useState("");
+  const [contato, setContato] = useState("");
+  return (
+    <Modal title="Novo candidato" onClose={onClose}>
+      <Field label="Nome">
+        <input autoFocus value={nome} onChange={(e) => setNome(e.target.value)} className="input" placeholder="Nome do candidato" />
+      </Field>
+      <Field label="Contato (opcional)">
+        <input value={contato} onChange={(e) => setContato(e.target.value)} className="input" placeholder="E-mail ou telefone" />
+      </Field>
+      <ModalActions onClose={onClose} onSave={() => nome.trim() && onSave({ nome, contato, vaga_id: vagaId })} disabled={!nome.trim()} />
+    </Modal>
   );
 }
