@@ -641,9 +641,7 @@ function TabButton({ active, onClick, label }) {
       className="text-sm font-medium px-3.5 py-1.5 rounded-md transition"
     >
       {label}
-    </button>
-
-function FinanceModal({ clients, onClose, onSave }) {
+    </button>function FinanceModal({ clients, onClose, onSave }) {
   const [tipo, setTipo] = useState("receber");
   const [descricao, setDescricao] = useState("");
   const [client_id, setClientId] = useState(clients[0]?.id || "");
@@ -879,8 +877,3 @@ function CandidatoModal({ vagaId, onClose, onSave }) {
 }
 
 
-
-
-    
-  );
-}
