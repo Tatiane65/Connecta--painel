@@ -642,8 +642,7 @@ function TabButton({ active, onClick, label }) {
     >
       {label}
     </button>
-  );
-}
+
 function FinanceModal({ clients, onClose, onSave }) {
   const [tipo, setTipo] = useState("receber");
   const [descricao, setDescricao] = useState("");
@@ -765,6 +764,11 @@ function RSView({ clients, vagas, candidatos, clientName, onAddVaga, onRemoveVag
                         </button>
                       </div>
                       {c.contato && <div className="text-xs text-[#8098A8] mt-1">{c.contato}</div>}
+                      {c.curriculo_url && (
+                        <a href={c.curriculo_url} target="_blank" rel="noreferrer" className="text-[11px] text-[#17B8C4] underline mt-1 inline-block">
+                          Ver currículo
+                        </a>
+                      )}
                       <div className="flex gap-1 mt-2 flex-wrap">
                         {RS_STAGES.filter((s2) => s2.key !== c.etapa).map((s2) => (
                           <button
@@ -871,5 +875,12 @@ function CandidatoModal({ vagaId, onClose, onSave }) {
       </Field>
       <ModalActions onClose={onClose} onSave={() => nome.trim() && onSave({ nome, contato, vaga_id: vagaId })} disabled={!nome.trim()} />
     </Modal>
+  );
+}
+
+
+
+
+    
   );
 }
