@@ -1,5 +1,3 @@
-
-
 import React, { useState, useEffect, useMemo } from "react";
 import {
   Users, ListChecks, Wallet, LayoutDashboard, Plus, X,
@@ -63,6 +61,10 @@ function daysUntil(dateStr) {
   return Math.round((d - now) / 86400000);
 }
 
+function generateCode() {
+  return Math.random().toString(36).slice(2, 10);
+}
+
 export default function App() {
   const [view, setView] = useState("dashboard");
   const [loading, setLoading] = useState(true);
@@ -99,7 +101,7 @@ export default function App() {
   const clientName = (id) => clients.find((c) => c.id === id)?.nome || "—";
 
   async function addClient(data) {
-    const { data: row, error: err } = await supabase.from("clients").insert({ status: "ativo", ...data }).select().single();
+    const { data: row, error: err } = await supabase.from("clients").insert({ status: "ativo", access_code: generateCode(), ...data }).select().single();
     if (!err) setClients((p) => [...p, row]);
   }
   async function removeClient(id) {
@@ -423,6 +425,18 @@ function ClientsView({ clients, tasks, onAdd, onRemove }) {
                 <div className="mt-3 text-xs text-[#5B7285]">
                   {tasks.filter((t) => t.client_id === c.id).length} tarefa(s) registrada(s)
                 </div>
+                {c.access_code && (
+                  <button
+                    onClick={() => {
+                      const url = `${window.location.origin}/portal.html?codigo=${c.access_code}`;
+                      navigator.clipboard.writeText(url);
+                      alert("Link do portal copiado!");
+                    }}
+                    className="mt-3 text-xs text-[#17B8C4] font-medium hover:underline"
+                  >
+                    Copiar link do portal
+                  </button>
+                )}
               </div>
             ))}
           </div>
