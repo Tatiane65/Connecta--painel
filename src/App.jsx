@@ -1,3 +1,5 @@
+
+
 import React, { useState, useEffect, useMemo } from "react";
 import {
   Users, ListChecks, Wallet, LayoutDashboard, Plus, X,
@@ -332,8 +334,7 @@ function Dashboard({ kpis, clients, tasks }) {
       </div>
     </div>
   );
-}
-function Kpi({ label, value, icon: Icon, warn, mono }) {
+}function Kpi({ label, value, icon: Icon, warn, mono }) {
   return (
     <div className="bg-white rounded-xl border border-[#E4EAEC] p-4">
       <div className="flex items-center justify-between mb-3">
@@ -641,7 +642,10 @@ function TabButton({ active, onClick, label }) {
       className="text-sm font-medium px-3.5 py-1.5 rounded-md transition"
     >
       {label}
-    </button>function FinanceModal({ clients, onClose, onSave }) {
+    </button>
+  );
+}
+function FinanceModal({ clients, onClose, onSave }) {
   const [tipo, setTipo] = useState("receber");
   const [descricao, setDescricao] = useState("");
   const [client_id, setClientId] = useState(clients[0]?.id || "");
@@ -875,5 +879,4 @@ function CandidatoModal({ vagaId, onClose, onSave }) {
     </Modal>
   );
 }
-
 
