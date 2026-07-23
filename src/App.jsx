@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo } from "react";
 import {
   Users, ListChecks, Wallet, LayoutDashboard, Plus, X,
-  Clock, AlertTriangle, Trash2, Briefcase, ArrowLeft
+  Clock, AlertTriangle, Trash2, Briefcase, ArrowLeft, CalendarCheck
 } from "lucide-react";
 import { supabase } from "./supabaseClient";
 
@@ -115,12 +115,16 @@ export default function App() {
   }
 
   async function addTask(data) {
-    const { data: row, error: err } = await supabase.from("tasks").insert({ etapa: "a_fazer", ...data }).select().single();
+    const { data: row, error: err } = await supabase.from("tasks").insert({ etapa: "a_fazer", responsavel: "Tatiane", ...data }).select().single();
     if (!err) setTasks((p) => [...p, row]);
   }
   async function moveTask(id, etapa) {
     setTasks((p) => p.map((t) => (t.id === id ? { ...t, etapa } : t)));
     await supabase.from("tasks").update({ etapa }).eq("id", id);
+  }
+  async function reassignTask(id, responsavel) {
+    setTasks((p) => p.map((t) => (t.id === id ? { ...t, responsavel } : t)));
+    await supabase.from("tasks").update({ responsavel }).eq("id", id);
   }
   async function removeTask(id) {
     await supabase.from("tasks").delete().eq("id", id);
@@ -210,6 +214,7 @@ export default function App() {
           <NavItem icon={LayoutDashboard} label="Painel" active={view === "dashboard"} onClick={() => setView("dashboard")} />
           <NavItem icon={Users} label="Clientes" active={view === "clients"} onClick={() => setView("clients")} />
           <NavItem icon={ListChecks} label="Tarefas" active={view === "tasks"} onClick={() => setView("tasks")} />
+          <NavItem icon={CalendarCheck} label="Planner" active={view === "planner"} onClick={() => setView("planner")} />
           <NavItem icon={Wallet} label="Financeiro" active={view === "finance"} onClick={() => setView("finance")} />
           <NavItem icon={Briefcase} label="R&S" active={view === "rs"} onClick={() => setView("rs")} />
         </nav>
@@ -227,6 +232,16 @@ export default function App() {
             clientName={clientName}
             onAdd={() => setModal({ type: "task" })}
             onMove={moveTask}
+            onRemove={removeTask}
+          />
+        )}
+        {view === "planner" && (
+          <PlannerView
+            tasks={tasks}
+            clientName={clientName}
+            onAdd={() => setModal({ type: "task" })}
+            onMove={moveTask}
+            onReassign={reassignTask}
             onRemove={removeTask}
           />
         )}
@@ -312,6 +327,7 @@ function AddButton({ label, onClick }) {
 }
 
 function Dashboard({ kpis, clients, tasks }) {
+function Dashboard({ kpis, clients, tasks }) {
   return (
     <div>
       <PageHeader title="Painel" subtitle="Visão geral das operações da Connecta" />
@@ -336,7 +352,9 @@ function Dashboard({ kpis, clients, tasks }) {
       </div>
     </div>
   );
-}function Kpi({ label, value, icon: Icon, warn, mono }) {
+}
+
+function Kpi({ label, value, icon: Icon, warn, mono }) {
   return (
     <div className="bg-white rounded-xl border border-[#E4EAEC] p-4">
       <div className="flex items-center justify-between mb-3">
@@ -540,6 +558,7 @@ function TaskModal({ clients, onClose, onSave }) {
   const [titulo, setTitulo] = useState("");
   const [client_id, setClientId] = useState(clients[0]?.id || "");
   const [prazo, setPrazo] = useState("");
+  const [responsavel, setResponsavel] = useState("Tatiane");
   return (
     <Modal title="Nova tarefa" onClose={onClose}>
       {clients.length === 0 ? (
@@ -554,10 +573,16 @@ function TaskModal({ clients, onClose, onSave }) {
               {clients.map((c) => <option key={c.id} value={c.id}>{c.nome}</option>)}
             </select>
           </Field>
+          <Field label="Responsável">
+            <select value={responsavel} onChange={(e) => setResponsavel(e.target.value)} className="input">
+              <option value="Tatiane">Tatiane</option>
+              <option value="Marta">Marta</option>
+            </select>
+          </Field>
           <Field label="Prazo (opcional)">
             <input type="date" value={prazo} onChange={(e) => setPrazo(e.target.value)} className="input" />
           </Field>
-          <ModalActions onClose={onClose} onSave={() => titulo.trim() && onSave({ titulo, client_id, prazo: prazo || null })} disabled={!titulo.trim()} />
+          <ModalActions onClose={onClose} onSave={() => titulo.trim() && onSave({ titulo, client_id, prazo: prazo || null, responsavel })} disabled={!titulo.trim()} />
         </>
       )}
     </Modal>
@@ -659,6 +684,67 @@ function TabButton({ active, onClick, label }) {
     </button>
   );
 }
+
+const PLANNER_PEOPLE = ["Tatiane", "Marta"];
+function PlannerView({ tasks, clientName, onAdd, onMove, onReassign, onRemove }) {
+  return (
+    <div>
+      <PageHeader title="Planner" subtitle="Tarefas divididas entre Tatiane e Marta" action={<AddButton label="Nova tarefa" onClick={onAdd} />} />
+      <div className="px-10 pb-10 grid grid-cols-2 gap-5">
+        {PLANNER_PEOPLE.map((pessoa) => {
+          const items = tasks.filter((t) => (t.responsavel || "Tatiane") === pessoa);
+          return (
+            <div key={pessoa}>
+              <div className="flex items-center gap-2 mb-3">
+                <span className="font-display font-600 text-[#0B2540]">{pessoa}</span>
+                <span className="text-xs text-[#B9C4CC] font-mono">{items.length}</span>
+              </div>
+              <div className="flex flex-col gap-2">
+                {items.length === 0 && <div className="text-xs text-[#B9C4CC] italic py-2">Nenhuma tarefa</div>}
+                {items.map((t) => {
+                  const dl = daysUntil(t.prazo);
+                  const late = dl !== null && dl < 0 && t.etapa !== "concluido";
+                  const outraPessoa = PLANNER_PEOPLE.find((p) => p !== pessoa);
+                  return (
+                    <div key={t.id} className="bg-white rounded-lg border border-[#E4EAEC] p-3">
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="text-sm font-medium text-[#0B2540] leading-snug">{t.titulo}</div>
+                        <button onClick={() => onRemove(t.id)} className="text-[#D7E0E4] hover:text-[#D9534F] flex-shrink-0">
+                          <X size={13} />
+                        </button>
+                      </div>
+                      <div className="text-xs text-[#8098A8] mt-1">{clientName(t.client_id)}</div>
+                      {t.prazo && (
+                        <div className={`text-[11px] font-mono mt-1 ${late ? "text-[#D9534F]" : "text-[#8098A8]"}`}>
+                          {late ? "Atrasada · " : ""}{new Date(t.prazo + "T00:00:00").toLocaleDateString("pt-BR")}
+                        </div>
+                      )}
+                      <div className="flex items-center justify-between mt-2">
+                        <span
+                          style={{ background: STAGE_COLOR[t.etapa] }}
+                          className="text-[10px] text-white px-2 py-0.5 rounded-full"
+                        >
+                          {STAGES.find((s) => s.key === t.etapa)?.label || t.etapa}
+                        </span>
+                        <button
+                          onClick={() => onReassign(t.id, outraPessoa)}
+                          className="text-[10px] px-1.5 py-0.5 rounded border border-[#E4EAEC] text-[#5B7285] hover:border-[#17B8C4] hover:text-[#17B8C4] transition"
+                        >
+                          Passar pra {outraPessoa}
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 function FinanceModal({ clients, onClose, onSave }) {
   const [tipo, setTipo] = useState("receber");
   const [descricao, setDescricao] = useState("");
@@ -893,4 +979,3 @@ function CandidatoModal({ vagaId, onClose, onSave }) {
     </Modal>
   );
 }
-
