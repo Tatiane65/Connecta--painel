@@ -327,7 +327,6 @@ function AddButton({ label, onClick }) {
 }
 
 function Dashboard({ kpis, clients, tasks }) {
-function Dashboard({ kpis, clients, tasks }) {
   return (
     <div>
       <PageHeader title="Painel" subtitle="Visão geral das operações da Connecta" />
