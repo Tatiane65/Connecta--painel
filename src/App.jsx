@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo } from "react";
 import {
   Users, ListChecks, Wallet, LayoutDashboard, Plus, X,
-  Clock, AlertTriangle, Trash2, Briefcase, ArrowLeft, CalendarCheck
+  Clock, AlertTriangle, Trash2, Briefcase, ArrowLeft, CalendarCheck, Menu
 } from "lucide-react";
 import { supabase } from "./supabaseClient";
 
@@ -67,6 +67,7 @@ function generateCode() {
 
 export default function App() {
   const [view, setView] = useState("dashboard");
+  const [sidebarOpen, setSidebarOpen] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [clients, setClients] = useState([]);
@@ -99,6 +100,11 @@ export default function App() {
   }, []);
 
   const clientName = (id) => clients.find((c) => c.id === id)?.nome || "—";
+
+  function selectView(v) {
+    setView(v);
+    setSidebarOpen(false);
+  }
 
   async function addClient(data) {
     const { data: row, error: err } = await supabase.from("clients").insert({ status: "ativo", access_code: generateCode(), ...data }).select().single();
@@ -205,22 +211,41 @@ export default function App() {
         ::-webkit-scrollbar-thumb { background: #CFD8DC; border-radius: 4px; }
       `}</style>
 
-      <aside style={{ background: "#0B2540", width: 232 }} className="flex-shrink-0 flex flex-col py-6">
+      {/* Mobile top bar */}
+      <div style={{ background: "#0B2540" }} className="md:hidden fixed top-0 left-0 right-0 z-30 flex items-center justify-between px-4 py-3">
+        <button onClick={() => setSidebarOpen(true)} className="text-white p-1 -ml-1">
+          <Menu size={22} />
+        </button>
+        <div className="font-display font-700 text-white text-base">Connecta</div>
+        <div style={{ width: 30 }} />
+      </div>
+
+      {/* Overlay behind the drawer on mobile */}
+      {sidebarOpen && (
+        <div onClick={() => setSidebarOpen(false)} className="md:hidden fixed inset-0 bg-[#0B2540]/50 z-40" />
+      )}
+
+      <aside
+        style={{ background: "#0B2540" }}
+        className={`fixed md:static top-0 left-0 h-full md:h-auto z-50 w-[80%] max-w-[280px] md:w-[232px] flex-shrink-0 flex flex-col py-6 transition-transform duration-200 ease-out ${
+          sidebarOpen ? "translate-x-0" : "-translate-x-full"
+        } md:translate-x-0`}
+      >
         <div className="px-6 mb-8">
           <div className="font-display font-700 text-white text-lg leading-tight">Connecta</div>
           <div style={{ color: "#7FA3B8" }} className="text-xs mt-0.5">Gestão Integrada</div>
         </div>
         <nav className="flex flex-col gap-1 px-3">
-          <NavItem icon={LayoutDashboard} label="Painel" active={view === "dashboard"} onClick={() => setView("dashboard")} />
-          <NavItem icon={Users} label="Clientes" active={view === "clients"} onClick={() => setView("clients")} />
-          <NavItem icon={ListChecks} label="Tarefas" active={view === "tasks"} onClick={() => setView("tasks")} />
-          <NavItem icon={CalendarCheck} label="Planner" active={view === "planner"} onClick={() => setView("planner")} />
-          <NavItem icon={Wallet} label="Financeiro" active={view === "finance"} onClick={() => setView("finance")} />
-          <NavItem icon={Briefcase} label="R&S" active={view === "rs"} onClick={() => setView("rs")} />
+          <NavItem icon={LayoutDashboard} label="Painel" active={view === "dashboard"} onClick={() => selectView("dashboard")} />
+          <NavItem icon={Users} label="Clientes" active={view === "clients"} onClick={() => selectView("clients")} />
+          <NavItem icon={ListChecks} label="Tarefas" active={view === "tasks"} onClick={() => selectView("tasks")} />
+          <NavItem icon={CalendarCheck} label="Planner" active={view === "planner"} onClick={() => selectView("planner")} />
+          <NavItem icon={Wallet} label="Financeiro" active={view === "finance"} onClick={() => selectView("finance")} />
+          <NavItem icon={Briefcase} label="R&S" active={view === "rs"} onClick={() => selectView("rs")} />
         </nav>
       </aside>
 
-      <main className="flex-1 min-w-0">
+      <main className="flex-1 min-w-0 pt-14 md:pt-0">
         {view === "dashboard" && <Dashboard kpis={kpis} clients={clients} tasks={tasks} />}
         {view === "clients" && (
           <ClientsView clients={clients} tasks={tasks} onAdd={() => setModal({ type: "client" })} onRemove={removeClient} />
@@ -304,12 +329,12 @@ function NavItem({ icon: Icon, label, active, onClick }) {
 
 function PageHeader({ title, subtitle, action }) {
   return (
-    <div className="flex items-start justify-between px-10 pt-9 pb-6">
+    <div className="flex flex-col sm:flex-row sm:items-start gap-3 sm:gap-0 sm:justify-between px-4 sm:px-6 md:px-10 pt-6 md:pt-9 pb-6">
       <div>
         <h1 className="font-display font-700 text-2xl text-[#0B2540]">{title}</h1>
         {subtitle && <p className="text-sm text-[#5B7285] mt-1">{subtitle}</p>}
       </div>
-      {action}
+      {action && <div className="w-full sm:w-auto">{action}</div>}
     </div>
   );
 }
@@ -319,30 +344,29 @@ function AddButton({ label, onClick }) {
     <button
       onClick={onClick}
       style={{ background: "#17B8C4" }}
-      className="flex items-center gap-1.5 text-white text-sm font-medium px-4 py-2.5 rounded-lg hover:brightness-95 transition"
+      className="w-full sm:w-auto flex items-center justify-center gap-1.5 text-white text-sm font-medium px-4 py-2.5 rounded-lg hover:brightness-95 transition"
     >
       <Plus size={16} /> {label}
     </button>
   );
 }
-
 function Dashboard({ kpis, clients, tasks }) {
   return (
     <div>
       <PageHeader title="Painel" subtitle="Visão geral das operações da Connecta" />
-      <div className="px-10 grid grid-cols-4 gap-4 mb-8">
+      <div className="px-4 sm:px-6 md:px-10 grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
         <Kpi label="Clientes ativos" value={kpis.ativos} icon={Users} />
         <Kpi label="Tarefas em andamento" value={kpis.andamento} icon={Clock} />
         <Kpi label="Tarefas atrasadas" value={kpis.atrasadas} icon={AlertTriangle} warn={kpis.atrasadas > 0} />
         <Kpi label="A receber" value={currency(kpis.aReceber)} icon={Wallet} mono />
       </div>
 
-      <div className="px-10">
+      <div className="px-4 sm:px-6 md:px-10">
         <h2 className="font-display font-600 text-base text-[#0B2540] mb-3">Fluxo por cliente</h2>
         {clients.length === 0 ? (
           <EmptyState text="Nenhum cliente cadastrado ainda. Cadastre o primeiro em Clientes." />
         ) : (
-          <div className="bg-white rounded-xl border border-[#E4EAEC] divide-y divide-[#E4EAEC]">
+          <div className="bg-white rounded-xl border border-[#E4EAEC] divide-y divide-[#E4EAEC] overflow-x-auto">
             {clients.map((c) => (
               <ClientFlowRow key={c.id} client={c} tasks={tasks.filter((t) => t.client_id === c.id)} />
             ))}
@@ -414,11 +438,11 @@ function ClientsView({ clients, tasks, onAdd, onRemove }) {
   return (
     <div>
       <PageHeader title="Clientes" subtitle={`${clients.length} cadastrado${clients.length !== 1 ? "s" : ""}`} action={<AddButton label="Novo cliente" onClick={onAdd} />} />
-      <div className="px-10 pb-10">
+      <div className="px-4 sm:px-6 md:px-10 pb-10">
         {clients.length === 0 ? (
           <EmptyState text="Nenhum cliente ainda. Cadastre o primeiro para começar a organizar tarefas e financeiro." />
         ) : (
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             {clients.map((c) => (
               <div key={c.id} className="bg-white rounded-xl border border-[#E4EAEC] p-5">
                 <div className="flex items-start justify-between">
@@ -494,7 +518,7 @@ function TasksView({ clients, tasks, clientName, onAdd, onMove, onRemove }) {
   return (
     <div>
       <PageHeader title="Tarefas" subtitle="Mova conforme o andamento" action={<AddButton label="Nova tarefa" onClick={onAdd} />} />
-      <div className="px-10 pb-10 grid grid-cols-4 gap-4">
+      <div className="px-4 sm:px-6 md:px-10 pb-10 grid grid-cols-2 md:grid-cols-4 gap-4">
         {STAGES.map((s) => {
           const items = tasks.filter((t) => t.etapa === s.key);
           return (
@@ -545,7 +569,7 @@ function TasksView({ clients, tasks, clientName, onAdd, onMove, onRemove }) {
         })}
       </div>
       {clients.length === 0 && (
-        <div className="px-10 -mt-2 pb-8">
+        <div className="px-4 sm:px-6 md:px-10 -mt-2 pb-8">
           <EmptyState text="Cadastre um cliente primeiro para conseguir criar tarefas." />
         </div>
       )}
@@ -599,7 +623,7 @@ function FinanceView({ clients, finances, clientName, onAdd, onMove, onRemove })
     <div>
       <PageHeader title="Financeiro" subtitle="Da emissão até a baixa" action={<AddButton label="Novo lançamento" onClick={onAdd} />} />
 
-      <div className="px-10 flex items-center justify-between mb-5">
+      <div className="px-4 sm:px-6 md:px-10 flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-0 sm:justify-between mb-5">
         <div className="flex gap-1 bg-white border border-[#E4EAEC] rounded-lg p-1 w-fit">
           <TabButton active={tipoView === "receber"} onClick={() => setTipoView("receber")} label="A receber" />
           <TabButton active={tipoView === "pago"} onClick={() => setTipoView("pago")} label="A pagar" />
@@ -610,7 +634,7 @@ function FinanceView({ clients, finances, clientName, onAdd, onMove, onRemove })
         </div>
       </div>
 
-      <div className="px-10 pb-10 grid grid-cols-4 gap-4">
+      <div className="px-4 sm:px-6 md:px-10 pb-10 grid grid-cols-2 md:grid-cols-4 gap-4">
         {FIN_STAGES.map((s) => {
           const label = tipoView === "receber" ? s.labelReceber : s.labelPagar;
           const colItems = items.filter((f) => f.etapa === s.key);
@@ -664,7 +688,7 @@ function FinanceView({ clients, finances, clientName, onAdd, onMove, onRemove })
         })}
       </div>
       {clients.length === 0 && (
-        <div className="px-10 -mt-2 pb-8">
+        <div className="px-4 sm:px-6 md:px-10 -mt-2 pb-8">
           <EmptyState text="Cadastre um cliente primeiro para lançar cobranças ou contas." />
         </div>
       )}
@@ -679,17 +703,18 @@ function TabButton({ active, onClick, label }) {
       style={{ background: active ? "#17B8C4" : "transparent", color: active ? "white" : "#5B7285" }}
       className="text-sm font-medium px-3.5 py-1.5 rounded-md transition"
     >
-      {label}
+      >
+    <Plus size={16} /> {label}
     </button>
   );
 }
-
 const PLANNER_PEOPLE = ["Tatiane", "Marta"];
+
 function PlannerView({ tasks, clientName, onAdd, onMove, onReassign, onRemove }) {
   return (
     <div>
       <PageHeader title="Planner" subtitle="Tarefas divididas entre Tatiane e Marta" action={<AddButton label="Nova tarefa" onClick={onAdd} />} />
-      <div className="px-10 pb-10 grid grid-cols-2 gap-5">
+      <div className="px-4 sm:px-6 md:px-10 pb-10 grid grid-cols-1 sm:grid-cols-2 gap-5">
         {PLANNER_PEOPLE.map((pessoa) => {
           const items = tasks.filter((t) => (t.responsavel || "Tatiane") === pessoa);
           return (
@@ -784,7 +809,7 @@ function FinanceModal({ clients, onClose, onSave }) {
 
 function Modal({ title, children, onClose }) {
   return (
-    <div className="fixed inset-0 bg-[#0B2540]/40 flex items-center justify-center z-50 p-4" onClick={onClose}>
+    <div className="fixed inset-0 bg-[#0B2540]/40 flex items-center justify-center z-[60] p-4" onClick={onClose}>
       <div onClick={(e) => e.stopPropagation()} className="bg-white rounded-xl w-full max-w-sm p-6 shadow-xl">
         <div className="flex items-center justify-between mb-4">
           <h3 className="font-display font-600 text-[#0B2540]">{title}</h3>
@@ -833,7 +858,7 @@ function RSView({ clients, vagas, candidatos, clientName, onAddVaga, onRemoveVag
     const items = candidatos.filter((c) => c.vaga_id === vaga.id);
     return (
       <div>
-        <div className="flex items-start justify-between px-10 pt-9 pb-6">
+        <div className="flex flex-col sm:flex-row sm:items-start gap-3 sm:gap-0 sm:justify-between px-4 sm:px-6 md:px-10 pt-6 md:pt-9 pb-6">
           <div>
             <button onClick={() => setSelectedVaga(null)} className="flex items-center gap-1 text-xs text-[#5B7285] mb-2 hover:text-[#0B2540]">
               <ArrowLeft size={13} /> Todas as vagas
@@ -841,10 +866,12 @@ function RSView({ clients, vagas, candidatos, clientName, onAddVaga, onRemoveVag
             <h1 className="font-display font-700 text-2xl text-[#0B2540]">{vaga.titulo}</h1>
             <p className="text-sm text-[#5B7285] mt-1">{clientName(vaga.client_id)} · {items.length} candidato{items.length !== 1 ? "s" : ""}</p>
           </div>
-          <AddButton label="Novo candidato" onClick={() => onAddCandidato(vaga.id)} />
+          <div className="w-full sm:w-auto">
+            <AddButton label="Novo candidato" onClick={() => onAddCandidato(vaga.id)} />
+          </div>
         </div>
 
-        <div className="px-10 pb-10 grid grid-cols-5 gap-3">
+        <div className="px-4 sm:px-6 md:px-10 pb-10 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
           {RS_STAGES.map((s) => {
             const colItems = items.filter((c) => c.etapa === s.key);
             return (
@@ -895,11 +922,11 @@ function RSView({ clients, vagas, candidatos, clientName, onAddVaga, onRemoveVag
   return (
     <div>
       <PageHeader title="Recrutamento & Seleção" subtitle={`${vagas.length} vaga${vagas.length !== 1 ? "s" : ""}`} action={<AddButton label="Nova vaga" onClick={onAddVaga} />} />
-      <div className="px-10 pb-10">
+      <div className="px-4 sm:px-6 md:px-10 pb-10">
         {vagas.length === 0 ? (
           <EmptyState text="Nenhuma vaga cadastrada ainda. Cadastre a primeira pra começar o funil de candidatos." />
         ) : (
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             {vagas.map((v) => {
               const items = candidatos.filter((c) => c.vaga_id === v.id);
               return (
@@ -978,3 +1005,4 @@ function CandidatoModal({ vagaId, onClose, onSave }) {
     </Modal>
   );
 }
+
