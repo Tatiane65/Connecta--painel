@@ -1,19 +1,408 @@
-import React from "react";
-import ReactDOM from "react-dom/client";
-import App from "./App.jsx";
+import React, { useState, useEffect, useMemo } from "react";
+import {
+  Users, ListChecks, Wallet, LayoutDashboard, Plus, X,
+  Clock, AlertTriangle, Trash2, Briefcase, ArrowLeft, CalendarCheck, Menu, BellRing
+} from "lucide-react";
+import { supabase } from "./supabaseClient";
 
-if ("serviceWorker" in navigator) {
-  window.addEventListener("load", () => {
-    navigator.serviceWorker.register("/sw.js").catch((e) => console.error("SW register failed", e));
-  });
+const VAPID_PUBLIC_KEY = "BGBgcD3j-1vr8ZBkA9ZGtbj4R0lZ3XWwl-1ivxYuNrof15Fff446VlqGSyGW8XblACFUT2sPtp-H0xoMVWSVinQ";
+
+function urlBase64ToUint8Array(base64String) {
+  const padding = "=".repeat((4 - (base64String.length % 4)) % 4);
+  const base64 = (base64String + padding).replace(/-/g, "+").replace(/_/g, "/");
+  const rawData = atob(base64);
+  const outputArray = new Uint8Array(rawData.length);
+  for (let i = 0; i < rawData.length; ++i) outputArray[i] = rawData.charCodeAt(i);
+  return outputArray;
 }
 
-ReactDOM.createRoot(document.getElementById("root")).render(
-  <React.StrictMode>
-    <App />
-  </React.StrictMode>
-);
-function Dashboard({ kpis, clients, tasks }) {
+const STAGES = [
+  { key: "a_fazer", label: "A fazer" },
+  { key: "andamento", label: "Em andamento" },
+  { key: "revisao", label: "Revisão" },
+  { key: "concluido", label: "Concluído" },
+];
+
+const STAGE_COLOR = {
+  a_fazer: "#B9C4CC",
+  andamento: "#17B8C4",
+  revisao: "#F2A93B",
+  concluido: "#2FA88A",
+};
+
+const FIN_STAGES = [
+  { key: "emitida", labelReceber: "Emitir cobrança", labelPagar: "Registrar conta" },
+  { key: "aguardando", labelReceber: "Aguardando vencimento", labelPagar: "Aguardando vencimento" },
+  { key: "pago", labelReceber: "Pagamento recebido", labelPagar: "Pago" },
+  { key: "baixado", labelReceber: "Baixado", labelPagar: "Baixado" },
+];
+
+const FIN_STAGE_COLOR = {
+  emitida: "#B9C4CC",
+  aguardando: "#F2A93B",
+  pago: "#17B8C4",
+  baixado: "#2FA88A",
+};
+
+const RS_STAGES = [
+  { key: "triagem", label: "Triagem" },
+  { key: "entrevista", label: "Entrevista" },
+  { key: "proposta", label: "Proposta" },
+  { key: "contratado", label: "Contratado" },
+  { key: "reprovado", label: "Reprovado" },
+];
+
+const RS_STAGE_COLOR = {
+  triagem: "#B9C4CC",
+  entrevista: "#17B8C4",
+  proposta: "#F2A93B",
+  contratado: "#2FA88A",
+  reprovado: "#D9534F",
+};
+
+function currency(v) {
+  return (Number(v) || 0).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+}
+
+function daysUntil(dateStr) {
+  if (!dateStr) return null;
+  const d = new Date(dateStr + "T00:00:00");
+  const now = new Date();
+  now.setHours(0, 0, 0, 0);
+  return Math.round((d - now) / 86400000);
+}
+
+function generateCode() {
+  return Math.random().toString(36).slice(2, 10);
+}
+
+export default function App() {
+  const [view, setView] = useState("dashboard");
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [clients, setClients] = useState([]);
+  const [tasks, setTasks] = useState([]);
+  const [finances, setFinances] = useState([]);
+  const [vagas, setVagas] = useState([]);
+  const [candidatos, setCandidatos] = useState([]);
+  const [modal, setModal] = useState(null);
+  const [notifStatus, setNotifStatus] = useState("idle");
+
+  useEffect(() => {
+    (async () => {
+      const [c, t, f, v, cd] = await Promise.all([
+        supabase.from("clients").select("*").order("created_at"),
+        supabase.from("tasks").select("*").order("created_at"),
+        supabase.from("finances").select("*").order("created_at"),
+        supabase.from("vagas").select("*").order("created_at"),
+        supabase.from("candidatos").select("*").order("created_at"),
+      ]);
+      if (c.error || t.error || f.error || v.error || cd.error) {
+        setError((c.error || t.error || f.error || v.error || cd.error).message);
+      } else {
+        setClients(c.data);
+        setTasks(t.data);
+        setFinances(f.data);
+        setVagas(v.data);
+        setCandidatos(cd.data);
+      }
+      setLoading(false);
+    })();
+  }, []);
+
+  const clientName = (id) => clients.find((c) => c.id === id)?.nome || "—";
+
+  function selectView(v) {
+    setView(v);
+    setSidebarOpen(false);
+  }
+
+  async function enableNotifications() {
+    if (!("serviceWorker" in navigator) || !("PushManager" in window)) {
+      setNotifStatus("unsupported");
+      return;
+    }
+    setNotifStatus("asking");
+    try {
+      const permission = await Notification.requestPermission();
+      if (permission !== "granted") {
+        setNotifStatus("idle");
+        return;
+      }
+      const reg = await navigator.serviceWorker.ready;
+      let sub = await reg.pushManager.getSubscription();
+      if (!sub) {
+        sub = await reg.pushManager.subscribe({
+          userVisibleOnly: true,
+          applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY),
+        });
+      }
+      await supabase.from("push_subscriptions").upsert(
+        { endpoint: sub.endpoint, subscription: sub.toJSON() },
+        { onConflict: "endpoint" }
+      );
+      setNotifStatus("on");
+    } catch (e) {
+      console.error(e);
+      setNotifStatus("error");
+    }
+  }
+
+  async function addClient(data) {
+    const { data: row, error: err } = await supabase.from("clients").insert({ status: "ativo", access_code: generateCode(), ...data }).select().single();
+    if (!err) setClients((p) => [...p, row]);
+  }
+  async function removeClient(id) {
+    await supabase.from("clients").delete().eq("id", id);
+    setClients((p) => p.filter((c) => c.id !== id));
+    setTasks((p) => p.filter((t) => t.client_id !== id));
+    setFinances((p) => p.filter((f) => f.client_id !== id));
+    const orphanVagas = vagas.filter((v) => v.client_id === id).map((v) => v.id);
+    setVagas((p) => p.filter((v) => v.client_id !== id));
+    setCandidatos((p) => p.filter((cd) => !orphanVagas.includes(cd.vaga_id)));
+  }
+
+  async function addTask(data) {
+    const { data: row, error: err } = await supabase.from("tasks").insert({ etapa: "a_fazer", responsavel: "Tatiane", ...data }).select().single();
+    if (!err) setTasks((p) => [...p, row]);
+  }
+  async function moveTask(id, etapa) {
+    setTasks((p) => p.map((t) => (t.id === id ? { ...t, etapa } : t)));
+    await supabase.from("tasks").update({ etapa }).eq("id", id);
+  }
+  async function reassignTask(id, responsavel) {
+    setTasks((p) => p.map((t) => (t.id === id ? { ...t, responsavel } : t)));
+    await supabase.from("tasks").update({ responsavel }).eq("id", id);
+  }
+  async function removeTask(id) {
+    await supabase.from("tasks").delete().eq("id", id);
+    setTasks((p) => p.filter((t) => t.id !== id));
+  }
+
+  async function addFinance(data) {
+    const { data: row, error: err } = await supabase.from("finances").insert({ etapa: "emitida", ...data }).select().single();
+    if (!err) setFinances((p) => [...p, row]);
+  }
+  async function moveFinance(id, etapa) {
+    setFinances((p) => p.map((f) => (f.id === id ? { ...f, etapa } : f)));
+    await supabase.from("finances").update({ etapa }).eq("id", id);
+  }
+  async function removeFinance(id) {
+    await supabase.from("finances").delete().eq("id", id);
+    setFinances((p) => p.filter((f) => f.id !== id));
+  }
+
+  async function addVaga(data) {
+    const { data: row, error: err } = await supabase.from("vagas").insert({ status: "aberta", ...data }).select().single();
+    if (!err) setVagas((p) => [...p, row]);
+  }
+  async function removeVaga(id) {
+    await supabase.from("vagas").delete().eq("id", id);
+    setVagas((p) => p.filter((v) => v.id !== id));
+    setCandidatos((p) => p.filter((cd) => cd.vaga_id !== id));
+  }
+
+  async function addCandidato(data) {
+    const { data: row, error: err } = await supabase.from("candidatos").insert({ etapa: "triagem", ...data }).select().single();
+    if (!err) setCandidatos((p) => [...p, row]);
+  }
+  async function moveCandidato(id, etapa) {
+    setCandidatos((p) => p.map((cd) => (cd.id === id ? { ...cd, etapa } : cd)));
+    await supabase.from("candidatos").update({ etapa }).eq("id", id);
+  }
+  async function removeCandidato(id) {
+    await supabase.from("candidatos").delete().eq("id", id);
+    setCandidatos((p) => p.filter((cd) => cd.id !== id));
+  }
+
+  const kpis = useMemo(() => {
+    const ativos = clients.filter((c) => c.status === "ativo").length;
+    const andamento = tasks.filter((t) => t.etapa === "andamento").length;
+    const atrasadas = tasks.filter((t) => t.prazo && daysUntil(t.prazo) < 0 && t.etapa !== "concluido").length;
+    const aReceber = finances
+      .filter((f) => f.tipo === "receber" && f.etapa !== "pago" && f.etapa !== "baixado")
+      .reduce((s, f) => s + Number(f.valor || 0), 0);
+    return { ativos, andamento, atrasadas, aReceber };
+  }, [clients, tasks, finances]);
+
+  if (loading) {
+    return (
+      <div style={{ background: "#F5F8F9", minHeight: "100vh" }} className="flex items-center justify-center">
+        <div style={{ color: "#0B2540" }} className="font-medium">Carregando painel…</div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div style={{ background: "#F5F8F9", minHeight: "100vh" }} className="flex items-center justify-center p-6">
+        <div className="bg-white border border-[#F5C6C6] rounded-xl p-6 max-w-md text-sm text-[#0B2540]">
+          <div className="font-medium mb-1">Não consegui conectar ao banco.</div>
+          <div className="text-[#5B7285]">{error}</div>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div style={{ background: "#F5F8F9", minHeight: "100vh", fontFamily: "Inter, sans-serif" }} className="flex text-[#1B2A3A]">
+      <style>{`
+        .font-display { font-family: 'Space Grotesk', sans-serif; }
+        .font-mono { font-family: 'IBM Plex Mono', monospace; }
+        ::-webkit-scrollbar { width: 8px; height: 8px; }
+        ::-webkit-scrollbar-thumb { background: #CFD8DC; border-radius: 4px; }
+      `}</style>
+
+      {/* Mobile top bar */}
+      <div style={{ background: "#0B2540" }} className="md:hidden fixed top-0 left-0 right-0 z-30 flex items-center justify-between px-4 py-3">
+        <button onClick={() => setSidebarOpen(true)} className="text-white p-1 -ml-1">
+          <Menu size={22} />
+        </button>
+        <div className="font-display font-700 text-white text-base">Connecta</div>
+        <div style={{ width: 30 }} />
+      </div>
+
+      {/* Overlay behind the drawer on mobile */}
+      {sidebarOpen && (
+        <div onClick={() => setSidebarOpen(false)} className="md:hidden fixed inset-0 bg-[#0B2540]/50 z-40" />
+      )}
+
+      <aside
+        style={{ background: "#0B2540" }}
+        className={`fixed md:static top-0 left-0 h-full md:h-auto z-50 w-[80%] max-w-[280px] md:w-[232px] flex-shrink-0 flex flex-col py-6 transition-transform duration-200 ease-out ${
+          sidebarOpen ? "translate-x-0" : "-translate-x-full"
+        } md:translate-x-0`}
+      >
+        <div className="px-6 mb-8">
+          <div className="font-display font-700 text-white text-lg leading-tight">Connecta</div>
+          <div style={{ color: "#7FA3B8" }} className="text-xs mt-0.5">Gestão Integrada</div>
+        </div>
+        <nav className="flex flex-col gap-1 px-3">
+          <NavItem icon={LayoutDashboard} label="Painel" active={view === "dashboard"} onClick={() => selectView("dashboard")} />
+          <NavItem icon={Users} label="Clientes" active={view === "clients"} onClick={() => selectView("clients")} />
+          <NavItem icon={ListChecks} label="Tarefas" active={view === "tasks"} onClick={() => selectView("tasks")} />
+          <NavItem icon={CalendarCheck} label="Planner" active={view === "planner"} onClick={() => selectView("planner")} />
+          <NavItem icon={Wallet} label="Financeiro" active={view === "finance"} onClick={() => selectView("finance")} />
+          <NavItem icon={Briefcase} label="R&S" active={view === "rs"} onClick={() => selectView("rs")} />
+        </nav>
+        <div className="mt-auto px-3 pt-4">
+          <button
+            onClick={enableNotifications}
+            disabled={notifStatus === "on" || notifStatus === "asking"}
+            className="w-full flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-xs font-medium text-[#B9CBD8] hover:bg-[#0F3157] hover:text-white transition disabled:opacity-70"
+          >
+            <BellRing size={15} />
+            {notifStatus === "on" ? "Notificações ativadas" : notifStatus === "asking" ? "Ativando…" : notifStatus === "unsupported" ? "Não suportado neste navegador" : "Ativar notificações"}
+          </button>
+        </div>
+      </aside>
+
+      <main className="flex-1 min-w-0 pt-14 md:pt-0">
+        {view === "dashboard" && <Dashboard kpis={kpis} clients={clients} tasks={tasks} />}
+        {view === "clients" && (
+          <ClientsView clients={clients} tasks={tasks} onAdd={() => setModal({ type: "client" })} onRemove={removeClient} />
+        )}
+        {view === "tasks" && (
+          <TasksView
+            clients={clients}
+            tasks={tasks}
+            clientName={clientName}
+            onAdd={() => setModal({ type: "task" })}
+            onMove={moveTask}
+            onRemove={removeTask}
+          />
+        )}
+        {view === "planner" && (
+          <PlannerView
+            tasks={tasks}
+            clientName={clientName}
+            onAdd={() => setModal({ type: "task" })}
+            onMove={moveTask}
+            onReassign={reassignTask}
+            onRemove={removeTask}
+          />
+        )}
+        {view === "finance" && (
+          <FinanceView
+            clients={clients}
+            finances={finances}
+            clientName={clientName}
+            onAdd={() => setModal({ type: "finance" })}
+            onMove={moveFinance}
+            onRemove={removeFinance}
+          />
+        )}
+        {view === "rs" && (
+          <RSView
+            clients={clients}
+            vagas={vagas}
+            candidatos={candidatos}
+            clientName={clientName}
+            onAddVaga={() => setModal({ type: "vaga" })}
+            onRemoveVaga={removeVaga}
+            onAddCandidato={(vagaId) => setModal({ type: "candidato", vagaId })}
+            onMoveCandidato={moveCandidato}
+            onRemoveCandidato={removeCandidato}
+          />
+        )}
+      </main>
+
+      {modal?.type === "client" && (
+        <ClientModal onClose={() => setModal(null)} onSave={(d) => { addClient(d); setModal(null); }} />
+      )}
+      {modal?.type === "task" && (
+        <TaskModal clients={clients} onClose={() => setModal(null)} onSave={(d) => { addTask(d); setModal(null); }} />
+      )}
+      {modal?.type === "finance" && (
+        <FinanceModal clients={clients} onClose={() => setModal(null)} onSave={(d) => { addFinance(d); setModal(null); }} />
+      )}
+      {modal?.type === "vaga" && (
+        <VagaModal clients={clients} onClose={() => setModal(null)} onSave={(d) => { addVaga(d); setModal(null); }} />
+      )}
+      {modal?.type === "candidato" && (
+        <CandidatoModal vagaId={modal.vagaId} onClose={() => setModal(null)} onSave={(d) => { addCandidato(d); setModal(null); }} />
+      )}
+    </div>
+  );
+}
+
+function NavItem({ icon: Icon, label, active, onClick }) {
+  return (
+    <button
+      onClick={onClick}
+      style={{ background: active ? "#17B8C4" : "transparent", color: active ? "#0B2540" : "#B9CBD8" }}
+      className="flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors hover:bg-[#0F3157] hover:text-white"
+    >
+      <Icon size={16} strokeWidth={2.2} />
+      {label}
+    </button>
+  );
+}
+
+function PageHeader({ title, subtitle, action }) {
+  return (
+    <div className="flex flex-col sm:flex-row sm:items-start gap-3 sm:gap-0 sm:justify-between px-4 sm:px-6 md:px-10 pt-6 md:pt-9 pb-6">
+      <div>
+        <h1 className="font-display font-700 text-2xl text-[#0B2540]">{title}</h1>
+        {subtitle && <p className="text-sm text-[#5B7285] mt-1">{subtitle}</p>}
+      </div>
+      {action && <div className="w-full sm:w-auto">{action}</div>}
+    </div>
+  );
+}
+
+function AddButton({ label, onClick }) {
+  return (
+    <button
+      onClick={onClick}
+      style={{ background: "#17B8C4" }}
+      className="w-full sm:w-auto flex items-center justify-center gap-1.5 text-white text-sm font-medium px-4 py-2.5 rounded-lg hover:brightness-95 transition"
+    >
+      <Plus size={16} /> {label}
+    </button>
+  );
+}function Dashboard({ kpis, clients, tasks }) {
   return (
     <div>
       <PageHeader title="Painel" subtitle="Visão geral das operações da Connecta" />
@@ -667,3 +1056,4 @@ function CandidatoModal({ vagaId, onClose, onSave }) {
     </Modal>
   );
 }
+
