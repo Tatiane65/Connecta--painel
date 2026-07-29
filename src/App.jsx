@@ -1,408 +1,18 @@
-import React, { useState, useEffect, useMemo } from "react";
-import {
-  Users, ListChecks, Wallet, LayoutDashboard, Plus, X,
-  Clock, AlertTriangle, Trash2, Briefcase, ArrowLeft, CalendarCheck, Menu, BellRing
-} from "lucide-react";
-import { supabase } from "./supabaseClient";
+import React from "react";
+import ReactDOM from "react-dom/client";
+import App from "./App.jsx";
 
-const VAPID_PUBLIC_KEY = "BGBgcD3j-1vr8ZBkA9ZGtbj4R0lZ3XWwl-1ivxYuNrof15Fff446VlqGSyGW8XblACFUT2sPtp-H0xoMVWSVinQ";
-
-function urlBase64ToUint8Array(base64String) {
-  const padding = "=".repeat((4 - (base64String.length % 4)) % 4);
-  const base64 = (base64String + padding).replace(/-/g, "+").replace(/_/g, "/");
-  const rawData = atob(base64);
-  const outputArray = new Uint8Array(rawData.length);
-  for (let i = 0; i < rawData.length; ++i) outputArray[i] = rawData.charCodeAt(i);
-  return outputArray;
+if ("serviceWorker" in navigator) {
+  window.addEventListener("load", () => {
+    navigator.serviceWorker.register("/sw.js").catch((e) => console.error("SW register failed", e));
+  });
 }
 
-const STAGES = [
-  { key: "a_fazer", label: "A fazer" },
-  { key: "andamento", label: "Em andamento" },
-  { key: "revisao", label: "Revisão" },
-  { key: "concluido", label: "Concluído" },
-];
-
-const STAGE_COLOR = {
-  a_fazer: "#B9C4CC",
-  andamento: "#17B8C4",
-  revisao: "#F2A93B",
-  concluido: "#2FA88A",
-};
-
-const FIN_STAGES = [
-  { key: "emitida", labelReceber: "Emitir cobrança", labelPagar: "Registrar conta" },
-  { key: "aguardando", labelReceber: "Aguardando vencimento", labelPagar: "Aguardando vencimento" },
-  { key: "pago", labelReceber: "Pagamento recebido", labelPagar: "Pago" },
-  { key: "baixado", labelReceber: "Baixado", labelPagar: "Baixado" },
-];
-
-const FIN_STAGE_COLOR = {
-  emitida: "#B9C4CC",
-  aguardando: "#F2A93B",
-  pago: "#17B8C4",
-  baixado: "#2FA88A",
-};
-
-const RS_STAGES = [
-  { key: "triagem", label: "Triagem" },
-  { key: "entrevista", label: "Entrevista" },
-  { key: "proposta", label: "Proposta" },
-  { key: "contratado", label: "Contratado" },
-  { key: "reprovado", label: "Reprovado" },
-];
-
-const RS_STAGE_COLOR = {
-  triagem: "#B9C4CC",
-  entrevista: "#17B8C4",
-  proposta: "#F2A93B",
-  contratado: "#2FA88A",
-  reprovado: "#D9534F",
-};
-
-function currency(v) {
-  return (Number(v) || 0).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
-}
-
-function daysUntil(dateStr) {
-  if (!dateStr) return null;
-  const d = new Date(dateStr + "T00:00:00");
-  const now = new Date();
-  now.setHours(0, 0, 0, 0);
-  return Math.round((d - now) / 86400000);
-}
-
-function generateCode() {
-  return Math.random().toString(36).slice(2, 10);
-}
-
-export default function App() {
-  const [view, setView] = useState("dashboard");
-  const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
-  const [clients, setClients] = useState([]);
-  const [tasks, setTasks] = useState([]);
-  const [finances, setFinances] = useState([]);
-  const [vagas, setVagas] = useState([]);
-  const [candidatos, setCandidatos] = useState([]);
-  const [modal, setModal] = useState(null);
-  const [notifStatus, setNotifStatus] = useState("idle");
-
-  useEffect(() => {
-    (async () => {
-      const [c, t, f, v, cd] = await Promise.all([
-        supabase.from("clients").select("*").order("created_at"),
-        supabase.from("tasks").select("*").order("created_at"),
-        supabase.from("finances").select("*").order("created_at"),
-        supabase.from("vagas").select("*").order("created_at"),
-        supabase.from("candidatos").select("*").order("created_at"),
-      ]);
-      if (c.error || t.error || f.error || v.error || cd.error) {
-        setError((c.error || t.error || f.error || v.error || cd.error).message);
-      } else {
-        setClients(c.data);
-        setTasks(t.data);
-        setFinances(f.data);
-        setVagas(v.data);
-        setCandidatos(cd.data);
-      }
-      setLoading(false);
-    })();
-  }, []);
-
-  const clientName = (id) => clients.find((c) => c.id === id)?.nome || "—";
-
-  function selectView(v) {
-    setView(v);
-    setSidebarOpen(false);
-  }
-
-  async function enableNotifications() {
-    if (!("serviceWorker" in navigator) || !("PushManager" in window)) {
-      setNotifStatus("unsupported");
-      return;
-    }
-    setNotifStatus("asking");
-    try {
-      const permission = await Notification.requestPermission();
-      if (permission !== "granted") {
-        setNotifStatus("idle");
-        return;
-      }
-      const reg = await navigator.serviceWorker.ready;
-      let sub = await reg.pushManager.getSubscription();
-      if (!sub) {
-        sub = await reg.pushManager.subscribe({
-          userVisibleOnly: true,
-          applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY),
-        });
-      }
-      await supabase.from("push_subscriptions").upsert(
-        { endpoint: sub.endpoint, subscription: sub.toJSON() },
-        { onConflict: "endpoint" }
-      );
-      setNotifStatus("on");
-    } catch (e) {
-      console.error(e);
-      setNotifStatus("error");
-    }
-  }
-
-  async function addClient(data) {
-    const { data: row, error: err } = await supabase.from("clients").insert({ status: "ativo", access_code: generateCode(), ...data }).select().single();
-    if (!err) setClients((p) => [...p, row]);
-  }
-  async function removeClient(id) {
-    await supabase.from("clients").delete().eq("id", id);
-    setClients((p) => p.filter((c) => c.id !== id));
-    setTasks((p) => p.filter((t) => t.client_id !== id));
-    setFinances((p) => p.filter((f) => f.client_id !== id));
-    const orphanVagas = vagas.filter((v) => v.client_id === id).map((v) => v.id);
-    setVagas((p) => p.filter((v) => v.client_id !== id));
-    setCandidatos((p) => p.filter((cd) => !orphanVagas.includes(cd.vaga_id)));
-  }
-
-  async function addTask(data) {
-    const { data: row, error: err } = await supabase.from("tasks").insert({ etapa: "a_fazer", responsavel: "Tatiane", ...data }).select().single();
-    if (!err) setTasks((p) => [...p, row]);
-  }
-  async function moveTask(id, etapa) {
-    setTasks((p) => p.map((t) => (t.id === id ? { ...t, etapa } : t)));
-    await supabase.from("tasks").update({ etapa }).eq("id", id);
-  }
-  async function reassignTask(id, responsavel) {
-    setTasks((p) => p.map((t) => (t.id === id ? { ...t, responsavel } : t)));
-    await supabase.from("tasks").update({ responsavel }).eq("id", id);
-  }
-  async function removeTask(id) {
-    await supabase.from("tasks").delete().eq("id", id);
-    setTasks((p) => p.filter((t) => t.id !== id));
-  }
-
-  async function addFinance(data) {
-    const { data: row, error: err } = await supabase.from("finances").insert({ etapa: "emitida", ...data }).select().single();
-    if (!err) setFinances((p) => [...p, row]);
-  }
-  async function moveFinance(id, etapa) {
-    setFinances((p) => p.map((f) => (f.id === id ? { ...f, etapa } : f)));
-    await supabase.from("finances").update({ etapa }).eq("id", id);
-  }
-  async function removeFinance(id) {
-    await supabase.from("finances").delete().eq("id", id);
-    setFinances((p) => p.filter((f) => f.id !== id));
-  }
-
-  async function addVaga(data) {
-    const { data: row, error: err } = await supabase.from("vagas").insert({ status: "aberta", ...data }).select().single();
-    if (!err) setVagas((p) => [...p, row]);
-  }
-  async function removeVaga(id) {
-    await supabase.from("vagas").delete().eq("id", id);
-    setVagas((p) => p.filter((v) => v.id !== id));
-    setCandidatos((p) => p.filter((cd) => cd.vaga_id !== id));
-  }
-
-  async function addCandidato(data) {
-    const { data: row, error: err } = await supabase.from("candidatos").insert({ etapa: "triagem", ...data }).select().single();
-    if (!err) setCandidatos((p) => [...p, row]);
-  }
-  async function moveCandidato(id, etapa) {
-    setCandidatos((p) => p.map((cd) => (cd.id === id ? { ...cd, etapa } : cd)));
-    await supabase.from("candidatos").update({ etapa }).eq("id", id);
-  }
-  async function removeCandidato(id) {
-    await supabase.from("candidatos").delete().eq("id", id);
-    setCandidatos((p) => p.filter((cd) => cd.id !== id));
-  }
-
-  const kpis = useMemo(() => {
-    const ativos = clients.filter((c) => c.status === "ativo").length;
-    const andamento = tasks.filter((t) => t.etapa === "andamento").length;
-    const atrasadas = tasks.filter((t) => t.prazo && daysUntil(t.prazo) < 0 && t.etapa !== "concluido").length;
-    const aReceber = finances
-      .filter((f) => f.tipo === "receber" && f.etapa !== "pago" && f.etapa !== "baixado")
-      .reduce((s, f) => s + Number(f.valor || 0), 0);
-    return { ativos, andamento, atrasadas, aReceber };
-  }, [clients, tasks, finances]);
-
-  if (loading) {
-    return (
-      <div style={{ background: "#F5F8F9", minHeight: "100vh" }} className="flex items-center justify-center">
-        <div style={{ color: "#0B2540" }} className="font-medium">Carregando painel…</div>
-      </div>
-    );
-  }
-
-  if (error) {
-    return (
-      <div style={{ background: "#F5F8F9", minHeight: "100vh" }} className="flex items-center justify-center p-6">
-        <div className="bg-white border border-[#F5C6C6] rounded-xl p-6 max-w-md text-sm text-[#0B2540]">
-          <div className="font-medium mb-1">Não consegui conectar ao banco.</div>
-          <div className="text-[#5B7285]">{error}</div>
-        </div>
-      </div>
-    );
-  }
-
-  return (
-    <div style={{ background: "#F5F8F9", minHeight: "100vh", fontFamily: "Inter, sans-serif" }} className="flex text-[#1B2A3A]">
-      <style>{`
-        .font-display { font-family: 'Space Grotesk', sans-serif; }
-        .font-mono { font-family: 'IBM Plex Mono', monospace; }
-        ::-webkit-scrollbar { width: 8px; height: 8px; }
-        ::-webkit-scrollbar-thumb { background: #CFD8DC; border-radius: 4px; }
-      `}</style>
-
-      {/* Mobile top bar */}
-      <div style={{ background: "#0B2540" }} className="md:hidden fixed top-0 left-0 right-0 z-30 flex items-center justify-between px-4 py-3">
-        <button onClick={() => setSidebarOpen(true)} className="text-white p-1 -ml-1">
-          <Menu size={22} />
-        </button>
-        <div className="font-display font-700 text-white text-base">Connecta</div>
-        <div style={{ width: 30 }} />
-      </div>
-
-      {/* Overlay behind the drawer on mobile */}
-      {sidebarOpen && (
-        <div onClick={() => setSidebarOpen(false)} className="md:hidden fixed inset-0 bg-[#0B2540]/50 z-40" />
-      )}
-
-      <aside
-        style={{ background: "#0B2540" }}
-        className={`fixed md:static top-0 left-0 h-full md:h-auto z-50 w-[80%] max-w-[280px] md:w-[232px] flex-shrink-0 flex flex-col py-6 transition-transform duration-200 ease-out ${
-          sidebarOpen ? "translate-x-0" : "-translate-x-full"
-        } md:translate-x-0`}
-      >
-        <div className="px-6 mb-8">
-          <div className="font-display font-700 text-white text-lg leading-tight">Connecta</div>
-          <div style={{ color: "#7FA3B8" }} className="text-xs mt-0.5">Gestão Integrada</div>
-        </div>
-        <nav className="flex flex-col gap-1 px-3">
-          <NavItem icon={LayoutDashboard} label="Painel" active={view === "dashboard"} onClick={() => selectView("dashboard")} />
-          <NavItem icon={Users} label="Clientes" active={view === "clients"} onClick={() => selectView("clients")} />
-          <NavItem icon={ListChecks} label="Tarefas" active={view === "tasks"} onClick={() => selectView("tasks")} />
-          <NavItem icon={CalendarCheck} label="Planner" active={view === "planner"} onClick={() => selectView("planner")} />
-          <NavItem icon={Wallet} label="Financeiro" active={view === "finance"} onClick={() => selectView("finance")} />
-          <NavItem icon={Briefcase} label="R&S" active={view === "rs"} onClick={() => selectView("rs")} />
-        </nav>
-        <div className="mt-auto px-3 pt-4">
-          <button
-            onClick={enableNotifications}
-            disabled={notifStatus === "on" || notifStatus === "asking"}
-            className="w-full flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-xs font-medium text-[#B9CBD8] hover:bg-[#0F3157] hover:text-white transition disabled:opacity-70"
-          >
-            <BellRing size={15} />
-            {notifStatus === "on" ? "Notificações ativadas" : notifStatus === "asking" ? "Ativando…" : notifStatus === "unsupported" ? "Não suportado neste navegador" : "Ativar notificações"}
-          </button>
-        </div>
-      </aside>
-
-      <main className="flex-1 min-w-0 pt-14 md:pt-0">
-        {view === "dashboard" && <Dashboard kpis={kpis} clients={clients} tasks={tasks} />}
-        {view === "clients" && (
-          <ClientsView clients={clients} tasks={tasks} onAdd={() => setModal({ type: "client" })} onRemove={removeClient} />
-        )}
-        {view === "tasks" && (
-          <TasksView
-            clients={clients}
-            tasks={tasks}
-            clientName={clientName}
-            onAdd={() => setModal({ type: "task" })}
-            onMove={moveTask}
-            onRemove={removeTask}
-          />
-        )}
-        {view === "planner" && (
-          <PlannerView
-            tasks={tasks}
-            clientName={clientName}
-            onAdd={() => setModal({ type: "task" })}
-            onMove={moveTask}
-            onReassign={reassignTask}
-            onRemove={removeTask}
-          />
-        )}
-        {view === "finance" && (
-          <FinanceView
-            clients={clients}
-            finances={finances}
-            clientName={clientName}
-            onAdd={() => setModal({ type: "finance" })}
-            onMove={moveFinance}
-            onRemove={removeFinance}
-          />
-        )}
-        {view === "rs" && (
-          <RSView
-            clients={clients}
-            vagas={vagas}
-            candidatos={candidatos}
-            clientName={clientName}
-            onAddVaga={() => setModal({ type: "vaga" })}
-            onRemoveVaga={removeVaga}
-            onAddCandidato={(vagaId) => setModal({ type: "candidato", vagaId })}
-            onMoveCandidato={moveCandidato}
-            onRemoveCandidato={removeCandidato}
-          />
-        )}
-      </main>
-
-      {modal?.type === "client" && (
-        <ClientModal onClose={() => setModal(null)} onSave={(d) => { addClient(d); setModal(null); }} />
-      )}
-      {modal?.type === "task" && (
-        <TaskModal clients={clients} onClose={() => setModal(null)} onSave={(d) => { addTask(d); setModal(null); }} />
-      )}
-      {modal?.type === "finance" && (
-        <FinanceModal clients={clients} onClose={() => setModal(null)} onSave={(d) => { addFinance(d); setModal(null); }} />
-      )}
-      {modal?.type === "vaga" && (
-        <VagaModal clients={clients} onClose={() => setModal(null)} onSave={(d) => { addVaga(d); setModal(null); }} />
-      )}
-      {modal?.type === "candidato" && (
-        <CandidatoModal vagaId={modal.vagaId} onClose={() => setModal(null)} onSave={(d) => { addCandidato(d); setModal(null); }} />
-      )}
-    </div>
-  );
-}
-
-function NavItem({ icon: Icon, label, active, onClick }) {
-  return (
-    <button
-      onClick={onClick}
-      style={{ background: active ? "#17B8C4" : "transparent", color: active ? "#0B2540" : "#B9CBD8" }}
-      className="flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors hover:bg-[#0F3157] hover:text-white"
-    >
-      <Icon size={16} strokeWidth={2.2} />
-      {label}
-    </button>
-  );
-}
-
-function PageHeader({ title, subtitle, action }) {
-  return (
-    <div className="flex flex-col sm:flex-row sm:items-start gap-3 sm:gap-0 sm:justify-between px-4 sm:px-6 md:px-10 pt-6 md:pt-9 pb-6">
-      <div>
-        <h1 className="font-display font-700 text-2xl text-[#0B2540]">{title}</h1>
-        {subtitle && <p className="text-sm text-[#5B7285] mt-1">{subtitle}</p>}
-      </div>
-      {action && <div className="w-full sm:w-auto">{action}</div>}
-    </div>
-  );
-}
-
-function AddButton({ label, onClick }) {
-  return (
-    <button
-      onClick={onClick}
-      style={{ background: "#17B8C4" }}
-      className="w-full sm:w-auto flex items-center justify-center gap-1.5 text-white text-sm font-medium px-4 py-2.5 rounded-lg hover:brightness-95 transition"
-    >
-      <Plus size={16} /> {label}
-    </button>
-  );
-}
+ReactDOM.createRoot(document.getElementById("root")).render(
+  <React.StrictMode>
+    <App />
+  </React.StrictMode>
+);
 function Dashboard({ kpis, clients, tasks }) {
   return (
     <div>
@@ -519,8 +129,248 @@ function ClientsView({ clients, tasks, onAdd, onRemove }) {
                 <div className="mt-3 text-xs text-[#5B7285]">
                   {tasks.filter((t) => t.client_id === c.id).length} tarefa(s) registrada(s)
                 </div>
-                
-                  const PLANNER_PEOPLE = ["Tatiane", "Marta"];
+                {c.access_code && (
+                  <button
+                    onClick={() => {
+                      const url = `${window.location.origin}/portal.html?codigo=${c.access_code}`;
+                      navigator.clipboard.writeText(url);
+                      alert("Link do portal copiado!");
+                    }}
+                    className="mt-3 text-xs text-[#17B8C4] font-medium hover:underline"
+                  >
+                    Copiar link do portal
+                  </button>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function ClientModal({ onClose, onSave }) {
+  const [nome, setNome] = useState("");
+  const [segmento, setSegmento] = useState("");
+  const [contato, setContato] = useState("");
+  const [status, setStatus] = useState("ativo");
+  return (
+    <Modal title="Novo cliente" onClose={onClose}>
+      <Field label="Nome da empresa">
+        <input autoFocus value={nome} onChange={(e) => setNome(e.target.value)} className="input" placeholder="Ex: Ótica Bela Vista" />
+      </Field>
+      <Field label="Segmento">
+        <input value={segmento} onChange={(e) => setSegmento(e.target.value)} className="input" placeholder="Ex: Varejo, Clínica, Construção" />
+      </Field>
+      <Field label="Contato (e-mail ou telefone)">
+        <input value={contato} onChange={(e) => setContato(e.target.value)} className="input" placeholder="contato@empresa.com" />
+      </Field>
+      <Field label="Status">
+        <select value={status} onChange={(e) => setStatus(e.target.value)} className="input">
+          <option value="ativo">Ativo</option>
+          <option value="prospect">Prospect</option>
+        </select>
+      </Field>
+      <ModalActions onClose={onClose} onSave={() => nome.trim() && onSave({ nome, segmento, contato, status })} disabled={!nome.trim()} />
+    </Modal>
+  );
+}
+
+function TasksView({ clients, tasks, clientName, onAdd, onMove, onRemove }) {
+  return (
+    <div>
+      <PageHeader title="Tarefas" subtitle="Mova conforme o andamento" action={<AddButton label="Nova tarefa" onClick={onAdd} />} />
+      <div className="px-4 sm:px-6 md:px-10 pb-10 grid grid-cols-2 md:grid-cols-4 gap-4">
+        {STAGES.map((s) => {
+          const items = tasks.filter((t) => t.etapa === s.key);
+          return (
+            <div key={s.key}>
+              <div className="flex items-center gap-2 mb-3">
+                <span style={{ background: STAGE_COLOR[s.key] }} className="w-2 h-2 rounded-full" />
+                <span className="text-xs font-medium text-[#5B7285] uppercase tracking-wide">{s.label}</span>
+                <span className="text-xs text-[#B9C4CC] font-mono">{items.length}</span>
+              </div>
+              <div className="flex flex-col gap-2">
+                {items.length === 0 && clients.length > 0 && (
+                  <div className="text-xs text-[#B9C4CC] italic py-2">vazio</div>
+                )}
+                {items.map((t) => {
+                  const dl = daysUntil(t.prazo);
+                  const late = dl !== null && dl < 0 && t.etapa !== "concluido";
+                  return (
+                    <div key={t.id} className="bg-white rounded-lg border border-[#E4EAEC] p-3">
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="text-sm font-medium text-[#0B2540] leading-snug">{t.titulo}</div>
+                        <button onClick={() => onRemove(t.id)} className="text-[#D7E0E4] hover:text-[#D9534F] flex-shrink-0">
+                          <X size={13} />
+                        </button>
+                      </div>
+                      <div className="text-xs text-[#8098A8] mt-1">{clientName(t.client_id)}</div>
+                      {t.prazo && (
+                        <div className={`text-[11px] font-mono mt-1.5 ${late ? "text-[#D9534F]" : "text-[#8098A8]"}`}>
+                          {late ? `Atrasada · ${new Date(t.prazo + "T00:00:00").toLocaleDateString("pt-BR")}` : new Date(t.prazo + "T00:00:00").toLocaleDateString("pt-BR")}
+                        </div>
+                      )}
+                      <div className="flex gap-1 mt-2">
+                        {STAGES.filter((s2) => s2.key !== t.etapa).map((s2) => (
+                          <button
+                            key={s2.key}
+                            onClick={() => onMove(t.id, s2.key)}
+                            className="text-[10px] px-1.5 py-0.5 rounded border border-[#E4EAEC] text-[#5B7285] hover:border-[#17B8C4] hover:text-[#17B8C4] transition"
+                          >
+                            {s2.label}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+      {clients.length === 0 && (
+        <div className="px-4 sm:px-6 md:px-10 -mt-2 pb-8">
+          <EmptyState text="Cadastre um cliente primeiro para conseguir criar tarefas." />
+        </div>
+      )}
+    </div>
+  );
+}
+
+function TaskModal({ clients, onClose, onSave }) {
+  const [titulo, setTitulo] = useState("");
+  const [client_id, setClientId] = useState(clients[0]?.id || "");
+  const [prazo, setPrazo] = useState("");
+  const [responsavel, setResponsavel] = useState("Tatiane");
+  return (
+    <Modal title="Nova tarefa" onClose={onClose}>
+      {clients.length === 0 ? (
+        <div className="text-sm text-[#8098A8]">Cadastre um cliente antes de criar tarefas.</div>
+      ) : (
+        <>
+          <Field label="Título">
+            <input autoFocus value={titulo} onChange={(e) => setTitulo(e.target.value)} className="input" placeholder="Ex: Emitir NF-e de julho" />
+          </Field>
+          <Field label="Cliente">
+            <select value={client_id} onChange={(e) => setClientId(e.target.value)} className="input">
+              {clients.map((c) => <option key={c.id} value={c.id}>{c.nome}</option>)}
+            </select>
+          </Field>
+          <Field label="Responsável">
+            <select value={responsavel} onChange={(e) => setResponsavel(e.target.value)} className="input">
+              <option value="Tatiane">Tatiane</option>
+              <option value="Marta">Marta</option>
+            </select>
+          </Field>
+          <Field label="Prazo (opcional)">
+            <input type="date" value={prazo} onChange={(e) => setPrazo(e.target.value)} className="input" />
+          </Field>
+          <ModalActions onClose={onClose} onSave={() => titulo.trim() && onSave({ titulo, client_id, prazo: prazo || null, responsavel })} disabled={!titulo.trim()} />
+        </>
+      )}
+    </Modal>
+  );
+}
+
+function FinanceView({ clients, finances, clientName, onAdd, onMove, onRemove }) {
+  const [tipoView, setTipoView] = useState("receber");
+  const items = finances.filter((f) => f.tipo === tipoView);
+  const pendente = items
+    .filter((f) => f.etapa !== "baixado" && (tipoView === "pago" || f.etapa !== "pago"))
+    .reduce((s, f) => s + Number(f.valor || 0), 0);
+
+  return (
+    <div>
+      <PageHeader title="Financeiro" subtitle="Da emissão até a baixa" action={<AddButton label="Novo lançamento" onClick={onAdd} />} />
+
+      <div className="px-4 sm:px-6 md:px-10 flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-0 sm:justify-between mb-5">
+        <div className="flex gap-1 bg-white border border-[#E4EAEC] rounded-lg p-1 w-fit">
+          <TabButton active={tipoView === "receber"} onClick={() => setTipoView("receber")} label="A receber" />
+          <TabButton active={tipoView === "pago"} onClick={() => setTipoView("pago")} label="A pagar" />
+        </div>
+        <div className="text-sm text-[#5B7285]">
+          {tipoView === "receber" ? "Ainda não recebido: " : "Ainda não pago: "}
+          <span className="font-mono font-600 text-[#0B2540]">{currency(pendente)}</span>
+        </div>
+      </div>
+
+      <div className="px-4 sm:px-6 md:px-10 pb-10 grid grid-cols-2 md:grid-cols-4 gap-4">
+        {FIN_STAGES.map((s) => {
+          const label = tipoView === "receber" ? s.labelReceber : s.labelPagar;
+          const colItems = items.filter((f) => f.etapa === s.key);
+          return (
+            <div key={s.key}>
+              <div className="flex items-center gap-2 mb-3">
+                <span style={{ background: FIN_STAGE_COLOR[s.key] }} className="w-2 h-2 rounded-full" />
+                <span className="text-xs font-medium text-[#5B7285] uppercase tracking-wide">{label}</span>
+                <span className="text-xs text-[#B9C4CC] font-mono">{colItems.length}</span>
+              </div>
+              <div className="flex flex-col gap-2">
+                {colItems.length === 0 && clients.length > 0 && (
+                  <div className="text-xs text-[#B9C4CC] italic py-2">vazio</div>
+                )}
+                {colItems.map((f) => {
+                  const dl = daysUntil(f.vencimento);
+                  const late = dl !== null && dl < 0 && s.key !== "pago" && s.key !== "baixado";
+                  return (
+                    <div key={f.id} className="bg-white rounded-lg border border-[#E4EAEC] p-3">
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="text-sm font-medium text-[#0B2540] leading-snug">{f.descricao}</div>
+                        <button onClick={() => onRemove(f.id)} className="text-[#D7E0E4] hover:text-[#D9534F] flex-shrink-0">
+                          <X size={13} />
+                        </button>
+                      </div>
+                      <div className="text-xs text-[#8098A8] mt-1">{clientName(f.client_id)}</div>
+                      <div className="font-mono text-sm text-[#0B2540] mt-1">{currency(f.valor)}</div>
+                      {f.vencimento && (
+                        <div className={`text-[11px] font-mono mt-1 ${late ? "text-[#D9534F]" : "text-[#8098A8]"}`}>
+                          {late ? "Venceu · " : "vence "}
+                          {new Date(f.vencimento + "T00:00:00").toLocaleDateString("pt-BR")}
+                        </div>
+                      )}
+                      <div className="flex gap-1 mt-2 flex-wrap">
+                        {FIN_STAGES.filter((s2) => s2.key !== f.etapa).map((s2) => (
+                          <button
+                            key={s2.key}
+                            onClick={() => onMove(f.id, s2.key)}
+                            className="text-[10px] px-1.5 py-0.5 rounded border border-[#E4EAEC] text-[#5B7285] hover:border-[#17B8C4] hover:text-[#17B8C4] transition"
+                          >
+                            {tipoView === "receber" ? s2.labelReceber : s2.labelPagar}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+      {clients.length === 0 && (
+        <div className="px-4 sm:px-6 md:px-10 -mt-2 pb-8">
+          <EmptyState text="Cadastre um cliente primeiro para lançar cobranças ou contas." />
+        </div>
+      )}
+    </div>
+  );
+}
+
+function TabButton({ active, onClick, label }) {
+  return (
+    <button
+      onClick={onClick}
+      style={{ background: active ? "#17B8C4" : "transparent", color: active ? "white" : "#5B7285" }}
+      className="text-sm font-medium px-3.5 py-1.5 rounded-md transition"
+    >
+      {label}
+    </button>
+  );
+}
+const PLANNER_PEOPLE = ["Tatiane", "Marta"];
 
 function PlannerView({ tasks, clientName, onAdd, onMove, onReassign, onRemove }) {
   return (
@@ -817,4 +667,3 @@ function CandidatoModal({ vagaId, onClose, onSave }) {
     </Modal>
   );
 }
-
