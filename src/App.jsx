@@ -519,7 +519,7 @@ function ClientsView({ clients, tasks, onAdd, onRemove }) {
                 <div className="mt-3 text-xs text-[#5B7285]">
                   {tasks.filter((t) => t.client_id === c.id).length} tarefa(s) registrada(s)
                 </div>
-                {u
+                
                   const PLANNER_PEOPLE = ["Tatiane", "Marta"];
 
 function PlannerView({ tasks, clientName, onAdd, onMove, onReassign, onRemove }) {
