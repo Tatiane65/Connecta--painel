@@ -130,7 +130,7 @@ export default function Precos() {
           />
         </Section>
 
-        <Section title="Recrutamento & Seleção" subtitle="Cobrança por vaga fechada">
+        <Section title="Recrutamento & Seleção" subtitle="Cobrança por vaga fechada ou plano mensal">
           <PackageCard
             nome="Vaga Operacional"
             preco="R$ 600"
@@ -150,6 +150,18 @@ export default function Precos() {
               "Tudo da vaga operacional",
               "Entrevista técnica e comportamental aprofundada",
               "Checagem de referências",
+            ]}
+          />
+          <PackageCard
+            nome="Plano Mensal R&S"
+            preco="R$ 2.000"
+            sub="/mês · até 3 vagas (operacional ou administrativa)"
+            destaque
+            items={[
+              "Até 3 vagas fechadas por mês",
+              "Mistura livre entre operacional e administrativa",
+              "Divulgação, triagem e entrevistas inclusas",
+              "Ideal para quem contrata com frequência",
             ]}
           />
         </Section>
