@@ -13,6 +13,7 @@ export default defineConfig({
         main: resolve(__dirname, "index.html"),
         vagas: resolve(__dirname, "vagas.html"),
         portal: resolve(__dirname, "portal.html"),
+        precos: resolve(__dirname, "precos.html"),
       },
     },
   },
