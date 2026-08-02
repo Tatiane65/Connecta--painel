@@ -1,9 +1,10 @@
 import React, { useState, useEffect, useMemo } from "react";
 import {
   Users, ListChecks, Wallet, LayoutDashboard, Plus, X,
-  Clock, AlertTriangle, Trash2, Briefcase, ArrowLeft, CalendarCheck, Menu, BellRing
+  Clock, AlertTriangle, Trash2, Briefcase, ArrowLeft, CalendarCheck, Menu, BellRing, FileBarChart
 } from "lucide-react";
 import { supabase } from "./supabaseClient";
+import { jsPDF } from "jspdf";
 
 const VAPID_PUBLIC_KEY = "BGBgcD3j-1vr8ZBkA9ZGtbj4R0lZ3XWwl-1ivxYuNrof15Fff446VlqGSyGW8XblACFUT2sPtp-H0xoMVWSVinQ";
 
@@ -284,6 +285,7 @@ export default function App() {
           <NavItem icon={ListChecks} label="Tarefas" active={view === "tasks"} onClick={() => selectView("tasks")} />
           <NavItem icon={CalendarCheck} label="Planner" active={view === "planner"} onClick={() => selectView("planner")} />
           <NavItem icon={Wallet} label="Financeiro" active={view === "finance"} onClick={() => selectView("finance")} />
+          <NavItem icon={FileBarChart} label="Relatórios" active={view === "reports"} onClick={() => selectView("reports")} />
           <NavItem icon={Briefcase} label="R&S" active={view === "rs"} onClick={() => selectView("rs")} />
         </nav>
         <div className="mt-auto px-3 pt-4">
@@ -333,6 +335,9 @@ export default function App() {
             onRemove={removeFinance}
           />
         )}
+        {view === "reports" && (
+          <ReportsView clients={clients} finances={finances} clientName={clientName} />
+        )}
         {view === "rs" && (
           <RSView
             clients={clients}
@@ -366,7 +371,6 @@ export default function App() {
     </div>
   );
 }
-
 function NavItem({ icon: Icon, label, active, onClick }) {
   return (
     <button
@@ -402,7 +406,9 @@ function AddButton({ label, onClick }) {
       <Plus size={16} /> {label}
     </button>
   );
-}function Dashboard({ kpis, clients, tasks }) {
+}
+
+function Dashboard({ kpis, clients, tasks }) {
   return (
     <div>
       <PageHeader title="Painel" subtitle="Visão geral das operações da Connecta" />
@@ -663,7 +669,6 @@ function TaskModal({ clients, onClose, onSave }) {
     </Modal>
   );
 }
-
 function FinanceView({ clients, finances, clientName, onAdd, onMove, onRemove }) {
   const [tipoView, setTipoView] = useState("receber");
   const items = finances.filter((f) => f.tipo === tipoView);
@@ -759,6 +764,188 @@ function TabButton({ active, onClick, label }) {
     </button>
   );
 }
+
+/* ---------------- Relatórios (DRE) ---------------- */
+function ReportsView({ clients, finances, clientName }) {
+  const now = new Date();
+  const defaultMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+  const [selectedClient, setSelectedClient] = useState("");
+  const [selectedMonth, setSelectedMonth] = useState(defaultMonth);
+
+  function dateRef(f) {
+    return f.vencimento || (f.created_at ? f.created_at.slice(0, 10) : null);
+  }
+  function inScope(f) {
+    if (selectedClient && f.client_id !== selectedClient) return false;
+    const ref = dateRef(f);
+    if (!ref) return false;
+    return ref.slice(0, 7) === selectedMonth;
+  }
+  function settled(f) {
+    return f.etapa === "pago" || f.etapa === "baixado";
+  }
+
+  const receitas = finances.filter((f) => f.tipo === "receber" && inScope(f) && settled(f));
+  const despesas = finances.filter((f) => f.tipo === "pago" && inScope(f) && settled(f));
+  const totalReceitas = receitas.reduce((s, f) => s + Number(f.valor || 0), 0);
+  const totalDespesas = despesas.reduce((s, f) => s + Number(f.valor || 0), 0);
+  const resultado = totalReceitas - totalDespesas;
+
+  const [ano, mesNum] = selectedMonth.split("-");
+  const mesLabel = new Date(Number(ano), Number(mesNum) - 1, 1).toLocaleDateString("pt-BR", { month: "long", year: "numeric" });
+  const clienteLabel = selectedClient ? clientName(selectedClient) : "Consolidado (todos os clientes)";
+
+  function baixarPDF() {
+    const doc = new jsPDF();
+    let y = 20;
+
+    doc.setFontSize(18);
+    doc.setTextColor(11, 37, 64);
+    doc.text("Connecta Gestão Integrada", 14, y);
+    y += 8;
+    doc.setFontSize(13);
+    doc.text("DRE — Demonstrativo de Resultado", 14, y);
+    y += 8;
+    doc.setFontSize(10);
+    doc.setTextColor(90, 100, 110);
+    doc.text(`Cliente: ${clienteLabel}`, 14, y);
+    y += 6;
+    doc.text(`Período: ${mesLabel}`, 14, y);
+    y += 12;
+
+    doc.setFontSize(12);
+    doc.setTextColor(11, 37, 64);
+    doc.text("Receitas", 14, y);
+    y += 7;
+    doc.setFontSize(9);
+    doc.setTextColor(30, 40, 50);
+    if (receitas.length === 0) {
+      doc.text("Nenhum lançamento no período.", 14, y);
+      y += 6;
+    } else {
+      receitas.forEach((f) => {
+        doc.text(f.descricao, 14, y);
+        doc.text(currency(f.valor), 195, y, { align: "right" });
+        y += 6;
+        if (y > 270) { doc.addPage(); y = 20; }
+      });
+    }
+    y += 2;
+    doc.setFontSize(10);
+    doc.setTextColor(23, 184, 196);
+    doc.text(`Total de Receitas: ${currency(totalReceitas)}`, 14, y);
+    y += 12;
+
+    doc.setFontSize(12);
+    doc.setTextColor(11, 37, 64);
+    doc.text("Despesas", 14, y);
+    y += 7;
+    doc.setFontSize(9);
+    doc.setTextColor(30, 40, 50);
+    if (despesas.length === 0) {
+      doc.text("Nenhum lançamento no período.", 14, y);
+      y += 6;
+    } else {
+      despesas.forEach((f) => {
+        doc.text(f.descricao, 14, y);
+        doc.text(currency(f.valor), 195, y, { align: "right" });
+        y += 6;
+        if (y > 270) { doc.addPage(); y = 20; }
+      });
+    }
+    y += 2;
+    doc.setFontSize(10);
+    doc.setTextColor(217, 83, 79);
+    doc.text(`Total de Despesas: ${currency(totalDespesas)}`, 14, y);
+    y += 14;
+
+    doc.setDrawColor(228, 234, 236);
+    doc.line(14, y, 195, y);
+    y += 10;
+    doc.setFontSize(13);
+    doc.setTextColor(resultado >= 0 ? 47 : 217, resultado >= 0 ? 168 : 83, resultado >= 0 ? 138 : 79);
+    doc.text(`Resultado Líquido: ${currency(resultado)}`, 14, y);
+
+    const nomeArquivo = `DRE-${selectedClient ? clienteLabel.replace(/\s+/g, "_") : "Consolidado"}-${selectedMonth}.pdf`;
+    doc.save(nomeArquivo);
+  }
+
+  return (
+    <div>
+      <PageHeader title="Relatórios" subtitle="DRE simplificado por período e cliente" />
+
+      <div className="px-4 sm:px-6 md:px-10 flex flex-col sm:flex-row gap-3 mb-6">
+        <select value={selectedClient} onChange={(e) => setSelectedClient(e.target.value)} className="input sm:max-w-xs">
+          <option value="">Todos os clientes (consolidado)</option>
+          {clients.map((c) => <option key={c.id} value={c.id}>{c.nome}</option>)}
+        </select>
+        <input type="month" value={selectedMonth} onChange={(e) => setSelectedMonth(e.target.value)} className="input sm:max-w-[180px]" />
+        <button
+          onClick={baixarPDF}
+          style={{ background: "#0B2540" }}
+          className="text-white text-sm font-medium px-4 py-2.5 rounded-lg hover:brightness-125 transition sm:ml-auto"
+        >
+          Baixar PDF
+        </button>
+      </div>
+
+      <div className="px-4 sm:px-6 md:px-10 grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
+        <div className="bg-white rounded-xl border border-[#E4EAEC] p-4">
+          <div className="text-xs font-medium text-[#5B7285] uppercase tracking-wide mb-2">Receitas</div>
+          <div className="font-mono font-700 text-xl" style={{ color: "#17B8C4" }}>{currency(totalReceitas)}</div>
+        </div>
+        <div className="bg-white rounded-xl border border-[#E4EAEC] p-4">
+          <div className="text-xs font-medium text-[#5B7285] uppercase tracking-wide mb-2">Despesas</div>
+          <div className="font-mono font-700 text-xl" style={{ color: "#D9534F" }}>{currency(totalDespesas)}</div>
+        </div>
+        <div className="bg-white rounded-xl border border-[#E4EAEC] p-4">
+          <div className="text-xs font-medium text-[#5B7285] uppercase tracking-wide mb-2">Resultado líquido</div>
+          <div className="font-mono font-700 text-xl" style={{ color: resultado >= 0 ? "#2FA88A" : "#D9534F" }}>{currency(resultado)}</div>
+        </div>
+      </div>
+
+      <div className="px-4 sm:px-6 md:px-10 pb-10 grid grid-cols-1 sm:grid-cols-2 gap-6">
+        <div>
+          <h3 className="font-display font-600 text-sm text-[#0B2540] mb-2">Receitas do período</h3>
+          {receitas.length === 0 ? (
+            <div className="text-xs text-[#B9C4CC] italic py-2">Nenhum lançamento</div>
+          ) : (
+            <div className="bg-white rounded-xl border border-[#E4EAEC] divide-y divide-[#E4EAEC]">
+              {receitas.map((f) => (
+                <div key={f.id} className="px-4 py-2.5 flex items-center justify-between gap-2">
+                  <div className="min-w-0">
+                    <div className="text-sm text-[#1B2A3A] truncate">{f.descricao}</div>
+                    {!selectedClient && <div className="text-xs text-[#8098A8]">{clientName(f.client_id)}</div>}
+                  </div>
+                  <div className="font-mono text-sm text-[#0B2540] flex-shrink-0">{currency(f.valor)}</div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+        <div>
+          <h3 className="font-display font-600 text-sm text-[#0B2540] mb-2">Despesas do período</h3>
+          {despesas.length === 0 ? (
+            <div className="text-xs text-[#B9C4CC] italic py-2">Nenhum lançamento</div>
+          ) : (
+            <div className="bg-white rounded-xl border border-[#E4EAEC] divide-y divide-[#E4EAEC]">
+              {despesas.map((f) => (
+                <div key={f.id} className="px-4 py-2.5 flex items-center justify-between gap-2">
+                  <div className="min-w-0">
+                    <div className="text-sm text-[#1B2A3A] truncate">{f.descricao}</div>
+                    {!selectedClient && <div className="text-xs text-[#8098A8]">{clientName(f.client_id)}</div>}
+                  </div>
+                  <div className="font-mono text-sm text-[#0B2540] flex-shrink-0">{currency(f.valor)}</div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 const PLANNER_PEOPLE = ["Tatiane", "Marta"];
 
 function PlannerView({ tasks, clientName, onAdd, onMove, onReassign, onRemove }) {
@@ -819,7 +1006,6 @@ function PlannerView({ tasks, clientName, onAdd, onMove, onReassign, onRemove })
     </div>
   );
 }
-
 function FinanceModal({ clients, onClose, onSave }) {
   const [tipo, setTipo] = useState("receber");
   const [descricao, setDescricao] = useState("");
