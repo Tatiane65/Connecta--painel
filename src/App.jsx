@@ -1043,12 +1043,11 @@ function FinanceModal({ clients, onClose, onSave }) {
     </Modal>
   );
 }
-
 function Modal({ title, children, onClose }) {
   return (
     <div className="fixed inset-0 bg-[#0B2540]/40 flex items-center justify-center z-[60] p-4" onClick={onClose}>
-      <div onClick={(e) => e.stopPropagation()} className="bg-white rounded-xl w-full max-w-sm p-6 shadow-xl">
-        <div className="flex items-center justify-between mb-4">
+      <div onClick={(e) => e.stopPropagation()} className="bg-white rounded-xl w-full max-w-sm p-6 shadow-xl max-h-[85vh] overflow-y-auto">
+        <div className="flex items-center justify-between mb-4 sticky -top-6 bg-white pt-1 pb-2 -mt-1">
           <h3 className="font-display font-600 text-[#0B2540]">{title}</h3>
           <button onClick={onClose} className="text-[#B9C4CC] hover:text-[#0B2540]"><X size={18} /></button>
         </div>
@@ -1058,6 +1057,8 @@ function Modal({ title, children, onClose }) {
     </div>
   );
 }
+
+
 
 function Field({ label, children }) {
   return (
