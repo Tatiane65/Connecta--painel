@@ -7,7 +7,7 @@ function waLink(pacote) {
   return `https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent(msg)}`;
 }
 
-function PackageCard({ nome, preco, sub, items, destaque }) {
+function PackageCard({ nome, sub, items, destaque }) {
   return (
     <div
       className={`rounded-xl p-5 flex flex-col ${destaque ? "border-2" : "border"}`}
@@ -22,10 +22,7 @@ function PackageCard({ nome, preco, sub, items, destaque }) {
         </span>
       )}
       <div className="font-display font-600 text-[#0B2540] text-lg">{nome}</div>
-      <div className="flex items-baseline gap-1 mt-1">
-        <span className="font-display font-700 text-2xl text-[#0B2540]">{preco}</span>
-      </div>
-      {sub && <div className="text-xs text-[#8098A8] mb-3">{sub}</div>}
+      {sub && <div className="text-xs text-[#8098A8] mb-3 mt-1">{sub}</div>}
       <ul className="flex-1 mt-2 mb-4 space-y-1.5">
         {items.map((it, i) => (
           <li key={i} className="text-sm text-[#1B2A3A] flex gap-2">
@@ -78,8 +75,6 @@ export default function Precos() {
         <Section title="eSocial Doméstico" subtitle="Cobrado por empregado gerenciado">
           <PackageCard
             nome="Gestão Completa"
-            preco="R$ 150"
-            sub="por mês, por empregado"
             items={[
               "Admissão (contrato e cadastro no eSocial)",
               "Folha de pagamento mensal",
@@ -95,8 +90,7 @@ export default function Precos() {
         <Section title="Financeiro (BPO)" subtitle="Escolha conforme o volume de lançamentos da sua empresa">
           <PackageCard
             nome="Essencial"
-            preco="R$ 1.200"
-            sub="/mês · até 50 lançamentos"
+            sub="até 50 lançamentos/mês"
             items={[
               "Contas a pagar",
               "Contas a receber",
@@ -106,8 +100,7 @@ export default function Precos() {
           />
           <PackageCard
             nome="Intermediário"
-            preco="R$ 2.500"
-            sub="/mês · até 150 lançamentos"
+            sub="até 150 lançamentos/mês"
             destaque
             items={[
               "Tudo do Essencial",
@@ -118,8 +111,7 @@ export default function Precos() {
           />
           <PackageCard
             nome="Completo"
-            preco="R$ 4.000"
-            sub="/mês · acima de 150 lançamentos"
+            sub="acima de 150 lançamentos/mês"
             items={[
               "Tudo do Intermediário",
               "Relatórios por centro de custo/filial",
@@ -133,7 +125,6 @@ export default function Precos() {
         <Section title="Recrutamento & Seleção" subtitle="Cobrança por vaga fechada ou plano mensal">
           <PackageCard
             nome="Vaga Operacional"
-            preco="R$ 600"
             sub="por vaga"
             items={[
               "Divulgação da vaga",
@@ -144,7 +135,6 @@ export default function Precos() {
           />
           <PackageCard
             nome="Vaga Administrativa"
-            preco="R$ 1.000"
             sub="por vaga"
             items={[
               "Tudo da vaga operacional",
@@ -154,8 +144,7 @@ export default function Precos() {
           />
           <PackageCard
             nome="Plano Mensal R&S"
-            preco="R$ 2.000"
-            sub="/mês · até 3 vagas (operacional ou administrativa)"
+            sub="até 3 vagas por mês"
             destaque
             items={[
               "Até 3 vagas fechadas por mês",
@@ -167,7 +156,7 @@ export default function Precos() {
         </Section>
 
         <p className="text-xs text-[#8098A8] text-center mt-8">
-          Valores de referência para empresas de pequeno porte (5 a 20 funcionários). Proposta final ajustada conforme escopo e volume real.
+          Proposta personalizada conforme o porte e as necessidades da sua empresa. Fale com a gente pelo WhatsApp.
         </p>
       </main>
 
