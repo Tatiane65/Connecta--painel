@@ -1195,7 +1195,6 @@ function RSView({ clients, vagas, candidatos, clientName, onAddVaga, onRemoveVag
     </div>
   );
 }
-
 function VagaModal({ clients, onClose, onSave }) {
   const [titulo, setTitulo] = useState("");
   const [client_id, setClientId] = useState(clients[0]?.id || "");
@@ -1223,22 +1222,6 @@ function VagaModal({ clients, onClose, onSave }) {
           <ModalActions onClose={onClose} onSave={() => titulo.trim() && onSave({ titulo, client_id, status })} disabled={!titulo.trim()} />
         </>
       )}
-    </Modal>
-  );
-}
-
-function CandidatoModal({ vagaId, onClose, onSave }) {
-  const [nome, setNome] = useState("");
-  const [contato, setContato] = useState("");
-  return (
-    <Modal title="Novo candidato" onClose={onClose}>
-      <Field label="Nome">
-        <input autoFocus value={nome} onChange={(e) => setNome(e.target.value)} className="input" placeholder="Nome do candidato" />
-      </Field>
-      <Field label="Contato (opcional)">
-        <input value={contato} onChange={(e) => setContato(e.target.value)} className="input" placeholder="E-mail ou telefone" />
-      </Field>
-      <ModalActions onClose={onClose} onSave={() => nome.trim() && onSave({ nome, contato, vaga_id: vagaId })} disabled={!nome.trim()} />
     </Modal>
   );
 }
