@@ -1199,6 +1199,16 @@ function VagaModal({ clients, onClose, onSave }) {
   const [titulo, setTitulo] = useState("");
   const [client_id, setClientId] = useState(clients[0]?.id || "");
   const [status, setStatus] = useState("aberta");
+  const [codigo, setCodigo] = useState("");
+  const [nivel, setNivel] = useState("");
+  const [modalidade, setModalidade] = useState("");
+  const [categoria, setCategoria] = useState("");
+  const [localizacao, setLocalizacao] = useState("");
+  const [salario, setSalario] = useState("");
+  const [vagas_qtd, setVagasQtd] = useState(1);
+  const [beneficios, setBeneficios] = useState("");
+  const [descricao, setDescricao] = useState("");
+
   return (
     <Modal title="Nova vaga" onClose={onClose}>
       {clients.length === 0 ? (
@@ -1219,10 +1229,69 @@ function VagaModal({ clients, onClose, onSave }) {
               <option value="fechada">Fechada</option>
             </select>
           </Field>
-          <ModalActions onClose={onClose} onSave={() => titulo.trim() && onSave({ titulo, client_id, status })} disabled={!titulo.trim()} />
+          <Field label="Código da vaga (opcional)">
+            <input value={codigo} onChange={(e) => setCodigo(e.target.value)} className="input" placeholder="Ex: VG-001" />
+          </Field>
+          <Field label="Nível">
+            <select value={nivel} onChange={(e) => setNivel(e.target.value)} className="input">
+              <option value="">—</option>
+              <option value="Estágio">Estágio</option>
+              <option value="Júnior">Júnior</option>
+              <option value="Pleno">Pleno</option>
+              <option value="Sênior">Sênior</option>
+              <option value="Coordenador">Coordenador</option>
+              <option value="Gerente">Gerente</option>
+            </select>
+          </Field>
+          <Field label="Modalidade">
+            <select value={modalidade} onChange={(e) => setModalidade(e.target.value)} className="input">
+              <option value="">—</option>
+              <option value="Presencial">Presencial</option>
+              <option value="Híbrido">Híbrido</option>
+              <option value="Remoto">Remoto</option>
+            </select>
+          </Field>
+          <Field label="Área/Categoria">
+            <input value={categoria} onChange={(e) => setCategoria(e.target.value)} className="input" placeholder="Ex: Administrativo, RH, Laboratório" />
+          </Field>
+          <Field label="Localização">
+            <input value={localizacao} onChange={(e) => setLocalizacao(e.target.value)} className="input" placeholder="Ex: Piracicaba/SP" />
+          </Field>
+          <Field label="Salário">
+            <input value={salario} onChange={(e) => setSalario(e.target.value)} className="input" placeholder="Ex: 2.200,00" />
+          </Field>
+          <Field label="Quantidade de vagas">
+            <input type="number" min="1" value={vagas_qtd} onChange={(e) => setVagasQtd(e.target.value)} className="input" />
+          </Field>
+          <Field label="Benefícios">
+            <input value={beneficios} onChange={(e) => setBeneficios(e.target.value)} className="input" placeholder="Ex: Vale Alimentação, Vale Transporte" />
+          </Field>
+          <Field label="Descrição da vaga (opcional)">
+            <textarea value={descricao} onChange={(e) => setDescricao(e.target.value)} className="input" rows={3} placeholder="Detalhes, requisitos, atividades..." />
+          </Field>
+          <ModalActions
+            onClose={onClose}
+            onSave={() =>
+              titulo.trim() &&
+              onSave({
+                titulo,
+                client_id,
+                status,
+                codigo: codigo || null,
+                nivel: nivel || null,
+                modalidade: modalidade || null,
+                categoria: categoria || null,
+                localizacao: localizacao || null,
+                salario: salario || null,
+                vagas_qtd: Number(vagas_qtd) || 1,
+                beneficios: beneficios || null,
+                descricao: descricao || null,
+              })
+            }
+            disabled={!titulo.trim()}
+          />
         </>
       )}
     </Modal>
   );
 }
-
