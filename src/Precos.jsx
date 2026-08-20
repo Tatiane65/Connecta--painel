@@ -87,7 +87,7 @@ export default function Precos() {
           />
         </Section>
 
-        <Section title="Financeiro (BPO)" subtitle="Escolha conforme o volume de lançamentos da sua empresa">
+                  <Section title="Financeiro (BPO)" subtitle="Escolha conforme o volume de lançamentos da sua empresa">
           <PackageCard
             nome="Essencial"
             sub="até 50 lançamentos/mês"
@@ -95,32 +95,34 @@ export default function Precos() {
               "Contas a pagar",
               "Contas a receber",
               "Conciliação bancária",
-              "Relatório mensal de fluxo de caixa",
+              "Fluxo de caixa mensal",
             ]}
           />
           <PackageCard
             nome="Intermediário"
-            sub="até 150 lançamentos/mês"
+            sub="até 100 lançamentos/mês"
             destaque
             items={[
               "Tudo do Essencial",
-              "Emissão de notas fiscais (NF-e/NFS-e)",
+              "Emissão de notas fiscais",
               "DRE mensal",
-              "Fluxo de caixa projetado (30/60/90 dias)",
+              "Fluxo de caixa projetado",
+              "Análise financeira básica",
             ]}
           />
           <PackageCard
             nome="Completo"
-            sub="acima de 150 lançamentos/mês"
+            sub="até 150 lançamentos/mês"
             items={[
               "Tudo do Intermediário",
-              "Relatórios por centro de custo/filial",
-              "Reunião mensal de análise dos resultados",
-              "Acompanhamento de indicadores",
-              "Suporte a decisões financeiras",
+              "Relatório por centro de custo/filial",
+              "Indicadores financeiros",
+              "Análise dos resultados",
+              "Reunião mensal",
             ]}
           />
         </Section>
+
 
         <Section title="Recrutamento & Seleção" subtitle="Cobrança por vaga fechada ou plano mensal">
           <PackageCard
