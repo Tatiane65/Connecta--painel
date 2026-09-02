@@ -1,7 +1,5 @@
 import React from "react";
 const WHATSAPP_NUMBER = "5519999264317";
-
-
 const
 
 function waLink(pacote) {
