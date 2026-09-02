@@ -1,13 +1,13 @@
 import React from "react";
+
 const WHATSAPP_NUMBER = "5519999264317";
-const
 
 function waLink(pacote) {
   const msg = `Olá! Tenho interesse no pacote "${pacote}" da Connecta. Gostaria de solicitar um orçamento.`;
   return `https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent(msg)}`;
 }
 
-function PackageCard({ nome, sub, items, destaque }) {
+function PackageCard({ nome, preco, sub, items, destaque }) {
   return (
     <div
       className={`rounded-xl p-5 flex flex-col ${destaque ? "border-2" : "border"}`}
@@ -22,7 +22,10 @@ function PackageCard({ nome, sub, items, destaque }) {
         </span>
       )}
       <div className="font-display font-600 text-[#0B2540] text-lg">{nome}</div>
-      {sub && <div className="text-xs text-[#8098A8] mb-3 mt-1">{sub}</div>}
+      <div className="flex items-baseline gap-1 mt-1">
+        <span className="font-display font-700 text-2xl text-[#0B2540]">{preco}</span>
+      </div>
+      {sub && <div className="text-xs text-[#8098A8] mb-3">{sub}</div>}
       <ul className="flex-1 mt-2 mb-4 space-y-1.5">
         {items.map((it, i) => (
           <li key={i} className="text-sm text-[#1B2A3A] flex gap-2">
@@ -75,6 +78,8 @@ export default function Precos() {
         <Section title="eSocial Doméstico" subtitle="Cobrado por empregado gerenciado">
           <PackageCard
             nome="Gestão Completa"
+            preco="R$ 150"
+            sub="por mês, por empregado"
             items={[
               "Admissão (contrato e cadastro no eSocial)",
               "Folha de pagamento mensal",
@@ -87,84 +92,4 @@ export default function Precos() {
           />
         </Section>
 
-                  <Section title="Financeiro (BPO)" subtitle="Escolha conforme o volume de lançamentos da sua empresa">
-          <PackageCard
-            nome="Essencial"
-            sub="até 50 lançamentos/mês"
-            items={[
-              "Contas a pagar",
-              "Contas a receber",
-              "Conciliação bancária",
-              "Fluxo de caixa mensal",
-            ]}
-          />
-          <PackageCard
-            nome="Intermediário"
-            sub="até 100 lançamentos/mês"
-            destaque
-            items={[
-              "Tudo do Essencial",
-              "Emissão de notas fiscais",
-              "DRE mensal",
-              "Fluxo de caixa projetado",
-              "Análise financeira básica",
-            ]}
-          />
-          <PackageCard
-            nome="Completo"
-            sub="até 150 lançamentos/mês"
-            items={[
-              "Tudo do Intermediário",
-              "Relatório por centro de custo/filial",
-              "Indicadores financeiros",
-              "Análise dos resultados",
-              "Reunião mensal",
-            ]}
-          />
-        </Section>
-
-
-        <Section title="Recrutamento & Seleção" subtitle="Cobrança por vaga fechada ou plano mensal">
-          <PackageCard
-            nome="Vaga Operacional"
-            sub="por vaga"
-            items={[
-              "Divulgação da vaga",
-              "Triagem de currículos",
-              "Entrevista inicial",
-              "Envio de shortlist ao cliente",
-            ]}
-          />
-          <PackageCard
-            nome="Vaga Administrativa"
-            sub="por vaga"
-            items={[
-              "Tudo da vaga operacional",
-              "Entrevista técnica e comportamental aprofundada",
-              "Checagem de referências",
-            ]}
-          />
-          <PackageCard
-            nome="Plano Mensal R&S"
-            sub="até 3 vagas por mês"
-            destaque
-            items={[
-              "Até 3 vagas fechadas por mês",
-              "Mistura livre entre operacional e administrativa",
-              "Divulgação, triagem e entrevistas inclusas",
-              "Ideal para quem contrata com frequência",
-            ]}
-          />
-        </Section>
-
-        <p className="text-xs text-[#8098A8] text-center mt-8">
-          Proposta personalizada conforme o porte e as necessidades da sua empresa. Fale com a gente pelo WhatsApp.
-        </p>
-      </main>
-
-      <footer className="text-center text-xs text-[#B9C4CC] pb-8">
-        Connecta Gestão Integrada
-      </footer>
-    </div>
-  );
-}
+        
