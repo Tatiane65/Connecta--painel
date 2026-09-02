@@ -1,7 +1,6 @@
 import React from "react";
 
 const WHATSAPP_NUMBER = "5519999264317";
-
 function waLink(pacote) {
   const msg = `Olá! Tenho interesse no pacote "${pacote}" da Connecta. Gostaria de solicitar um orçamento.`;
   return `https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent(msg)}`;
