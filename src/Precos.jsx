@@ -1,6 +1,7 @@
 import React from "react";
 
 const WHATSAPP_NUMBER = "5519999264317";
+
 function waLink(pacote) {
   const msg = `Olá! Tenho interesse no pacote "${pacote}" da Connecta. Gostaria de solicitar um orçamento.`;
   return `https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent(msg)}`;
@@ -91,4 +92,88 @@ export default function Precos() {
           />
         </Section>
 
-        
+        <Section title="Financeiro (BPO)" subtitle="Escolha conforme o volume de lançamentos da sua empresa">
+          <PackageCard
+            nome="Essencial"
+            preco="R$ 1.200"
+            sub="/mês · até 50 lançamentos"
+            items={[
+              "Contas a pagar",
+              "Contas a receber",
+              "Conciliação bancária",
+              "Relatório mensal de fluxo de caixa",
+            ]}
+          />
+          <PackageCard
+            nome="Intermediário"
+            preco="R$ 2.500"
+            sub="/mês · até 150 lançamentos"
+            destaque
+            items={[
+              "Tudo do Essencial",
+              "Emissão de notas fiscais (NF-e/NFS-e)",
+              "DRE mensal",
+              "Fluxo de caixa projetado (30/60/90 dias)",
+            ]}
+          />
+          <PackageCard
+            nome="Completo"
+            preco="R$ 4.000"
+            sub="/mês · acima de 150 lançamentos"
+            items={[
+              "Tudo do Intermediário",
+              "Relatórios por centro de custo/filial",
+              "Reunião mensal de análise dos resultados",
+              "Acompanhamento de indicadores",
+              "Suporte a decisões financeiras",
+            ]}
+          />
+        </Section>
+
+        <Section title="Recrutamento & Seleção" subtitle="Cobrança por vaga fechada ou plano mensal">
+          <PackageCard
+            nome="Vaga Operacional"
+            preco="R$ 600"
+            sub="por vaga"
+            items={[
+              "Divulgação da vaga",
+              "Triagem de currículos",
+              "Entrevista inicial",
+              "Envio de shortlist ao cliente",
+            ]}
+          />
+          <PackageCard
+            nome="Vaga Administrativa"
+            preco="R$ 1.000"
+            sub="por vaga"
+            items={[
+              "Tudo da vaga operacional",
+              "Entrevista técnica e comportamental aprofundada",
+              "Checagem de referências",
+            ]}
+          />
+          <PackageCard
+            nome="Plano Mensal R&S"
+            preco="R$ 2.000"
+            sub="/mês · até 3 vagas (operacional ou administrativa)"
+            destaque
+            items={[
+              "Até 3 vagas fechadas por mês",
+              "Mistura livre entre operacional e administrativa",
+              "Divulgação, triagem e entrevistas inclusas",
+              "Ideal para quem contrata com frequência",
+            ]}
+          />
+        </Section>
+
+        <p className="text-xs text-[#8098A8] text-center mt-8">
+          Valores de referência para empresas de pequeno porte (5 a 20 funcionários). Proposta final ajustada conforme escopo e volume real.
+        </p>
+      </main>
+
+      <footer className="text-center text-xs text-[#B9C4CC] pb-8">
+        Connecta Gestão Integrada
+      </footer>
+    </div>
+  );
+}
