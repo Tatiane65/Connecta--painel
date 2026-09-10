@@ -277,7 +277,9 @@ export default function App() {
       >
         <div className="px-6 mb-8">
           <div className="font-display font-700 text-white text-lg leading-tight">Connecta</div>
-          <div style={{ color: "#7FA3B8" }} className="text-xs mt-0.5">Gestão Integrada</div>
+          
+        <div style={{ color: "#7FA3B8" }} className="text-xs mt-0.5">Serviços Administrativos</div>
+
         </div>
         <nav className="flex flex-col gap-1 px-3">
           <NavItem icon={LayoutDashboard} label="Painel" active={view === "dashboard"} onClick={() => selectView("dashboard")} />
