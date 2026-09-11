@@ -3,7 +3,7 @@ import React from "react";
 const WHATSAPP_NUMBER = "5519999264317";
 
 function waLink(pacote) {
-  const msg = `Olá! Tenho interesse no pacote "${pacote}" da Connecta. Gostaria de solicitar um orçamento.`;
+  const msg = `Olá! Tenho interesse no serviço "${pacote}" da Connecta. Gostaria de solicitar um orçamento.`;
   return `https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent(msg)}`;
 }
 
@@ -26,14 +26,17 @@ function PackageCard({ nome, preco, sub, items, destaque }) {
         <span className="font-display font-700 text-2xl text-[#0B2540]">{preco}</span>
       </div>
       {sub && <div className="text-xs text-[#8098A8] mb-3">{sub}</div>}
-      <ul className="flex-1 mt-2 mb-4 space-y-1.5">
-        {items.map((it, i) => (
-          <li key={i} className="text-sm text-[#1B2A3A] flex gap-2">
-            <span style={{ color: "#17B8C4" }}>•</span>
-            <span>{it}</span>
-          </li>
-        ))}
-      </ul>
+      {items && (
+        <ul className="flex-1 mt-2 mb-4 space-y-1.5">
+          {items.map((it, i) => (
+            <li key={i} className="text-sm text-[#1B2A3A] flex gap-2">
+              <span style={{ color: "#17B8C4" }}>•</span>
+              <span>{it}</span>
+            </li>
+          ))}
+        </ul>
+      )}
+      {!items && <div className="flex-1 mb-4" />}
       <a
         href={waLink(nome)}
         target="_blank"
@@ -68,9 +71,9 @@ export default function Precos() {
 
       <header style={{ background: "#0B2540" }} className="px-6 py-10 text-center">
         <div className="font-display font-700 text-white text-2xl">Connecta</div>
-        <div style={{ color: "#7FA3B8" }} className="text-sm mt-1">Gestão Integrada</div>
+        <div style={{ color: "#7FA3B8" }} className="text-sm mt-1">Serviços Administrativos</div>
         <p className="text-white/90 text-sm mt-4 max-w-md mx-auto">
-          BPO administrativo, financeiro e recrutamento para pequenas empresas.
+          Serviços administrativos, financeiros e de recrutamento para pequenas empresas.
         </p>
       </header>
 
@@ -92,41 +95,30 @@ export default function Precos() {
           />
         </Section>
 
-        <Section title="Financeiro (BPO)" subtitle="Escolha conforme o volume de lançamentos da sua empresa">
+        <Section title="Serviços Financeiros" subtitle="Contrate o que precisar, separadamente">
           <PackageCard
-            nome="Essencial"
-            preco="R$ 1.200"
-            sub="/mês · até 50 lançamentos"
-            items={[
-              "Contas a pagar",
-              "Contas a receber",
-              "Conciliação bancária",
-              "Relatório mensal de fluxo de caixa",
-            ]}
+            nome="Contas a pagar"
+            preco="R$ 500"
+            sub="/mês"
+            items={["Organização de vencimentos", "Programação de pagamentos"]}
           />
           <PackageCard
-            nome="Intermediário"
-            preco="R$ 2.500"
-            sub="/mês · até 150 lançamentos"
-            destaque
-            items={[
-              "Tudo do Essencial",
-              "Emissão de notas fiscais (NF-e/NFS-e)",
-              "DRE mensal",
-              "Fluxo de caixa projetado (30/60/90 dias)",
-            ]}
+            nome="Contas a receber"
+            preco="R$ 500"
+            sub="/mês"
+            items={["Emissão de cobranças", "Controle de recebimento"]}
           />
           <PackageCard
-            nome="Completo"
-            preco="R$ 4.000"
-            sub="/mês · acima de 150 lançamentos"
-            items={[
-              "Tudo do Intermediário",
-              "Relatórios por centro de custo/filial",
-              "Reunião mensal de análise dos resultados",
-              "Acompanhamento de indicadores",
-              "Suporte a decisões financeiras",
-            ]}
+            nome="Conciliação bancária"
+            preco="R$ 400"
+            sub="/mês"
+            items={["Conferência de extratos", "Apontamento de divergências"]}
+          />
+          <PackageCard
+            nome="Emissão de notas fiscais"
+            preco="R$ 600"
+            sub="/mês"
+            items={["Emissão de NF-e / NFS-e", "Organização e envio ao cliente"]}
           />
         </Section>
 
@@ -172,7 +164,7 @@ export default function Precos() {
       </main>
 
       <footer className="text-center text-xs text-[#B9C4CC] pb-8">
-        Connecta Gestão Integrada
+        Connecta Serviços Administrativos
       </footer>
     </div>
   );
