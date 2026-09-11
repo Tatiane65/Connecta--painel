@@ -7,7 +7,7 @@ function waLink(pacote) {
   return `https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent(msg)}`;
 }
 
-function PackageCard({ nome, preco, sub, items, destaque }) {
+function PackageCard({ nome, sub, items, destaque }) {
   return (
     <div
       className={`rounded-xl p-5 flex flex-col ${destaque ? "border-2" : "border"}`}
@@ -22,10 +22,7 @@ function PackageCard({ nome, preco, sub, items, destaque }) {
         </span>
       )}
       <div className="font-display font-600 text-[#0B2540] text-lg">{nome}</div>
-      <div className="flex items-baseline gap-1 mt-1">
-        <span className="font-display font-700 text-2xl text-[#0B2540]">{preco}</span>
-      </div>
-      {sub && <div className="text-xs text-[#8098A8] mb-3">{sub}</div>}
+      {sub && <div className="text-xs text-[#8098A8] mb-3 mt-1">{sub}</div>}
       {items && (
         <ul className="flex-1 mt-2 mb-4 space-y-1.5">
           {items.map((it, i) => (
@@ -81,8 +78,7 @@ export default function Precos() {
         <Section title="eSocial Doméstico" subtitle="Cobrado por empregado gerenciado">
           <PackageCard
             nome="Gestão Completa"
-            preco="R$ 150"
-            sub="por mês, por empregado"
+            sub="por empregado"
             items={[
               "Admissão (contrato e cadastro no eSocial)",
               "Folha de pagamento mensal",
@@ -98,35 +94,25 @@ export default function Precos() {
         <Section title="Serviços Financeiros" subtitle="Contrate o que precisar, separadamente">
           <PackageCard
             nome="Contas a pagar"
-            preco="R$ 500"
-            sub="/mês"
             items={["Organização de vencimentos", "Programação de pagamentos"]}
           />
           <PackageCard
             nome="Contas a receber"
-            preco="R$ 500"
-            sub="/mês"
             items={["Emissão de cobranças", "Controle de recebimento"]}
           />
           <PackageCard
             nome="Conciliação bancária"
-            preco="R$ 400"
-            sub="/mês"
             items={["Conferência de extratos", "Apontamento de divergências"]}
           />
           <PackageCard
             nome="Emissão de notas fiscais"
-            preco="R$ 600"
-            sub="/mês"
             items={["Emissão de NF-e / NFS-e", "Organização e envio ao cliente"]}
           />
         </Section>
 
-        <Section title="Recrutamento & Seleção" subtitle="Cobrança por vaga fechada ou plano mensal">
+        <Section title="Recrutamento & Seleção" subtitle="Por vaga fechada ou plano mensal">
           <PackageCard
             nome="Vaga Operacional"
-            preco="R$ 600"
-            sub="por vaga"
             items={[
               "Divulgação da vaga",
               "Triagem de currículos",
@@ -136,8 +122,6 @@ export default function Precos() {
           />
           <PackageCard
             nome="Vaga Administrativa"
-            preco="R$ 1.000"
-            sub="por vaga"
             items={[
               "Tudo da vaga operacional",
               "Entrevista técnica e comportamental aprofundada",
@@ -146,8 +130,7 @@ export default function Precos() {
           />
           <PackageCard
             nome="Plano Mensal R&S"
-            preco="R$ 2.000"
-            sub="/mês · até 3 vagas (operacional ou administrativa)"
+            sub="até 3 vagas (operacional ou administrativa)"
             destaque
             items={[
               "Até 3 vagas fechadas por mês",
@@ -159,7 +142,7 @@ export default function Precos() {
         </Section>
 
         <p className="text-xs text-[#8098A8] text-center mt-8">
-          Valores de referência para empresas de pequeno porte (5 a 20 funcionários). Proposta final ajustada conforme escopo e volume real.
+          Serviços para empresas de pequeno porte (5 a 20 funcionários). Escopo e valor ajustados conforme sua necessidade — fale com a gente.
         </p>
       </main>
 
